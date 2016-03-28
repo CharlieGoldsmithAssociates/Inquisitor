@@ -1,77 +1,94 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:id="@+id/ScrollView01"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
     android:paddingBottom="@dimen/activity_vertical_margin"
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    tools:context="uk.co.cga.hristest.questionActivity$PlaceholderFragment">
+    tools:context="uk.co.cga.hristest.questionActivity$PlaceholderFragment"
+    android:contentDescription="Scrollable question view "
+    android:fillViewport="true"
+    android:focusable="true">
+
+<LinearLayout
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:id="@+id/fragVLayout"
+    >
 
     <LinearLayout
-        android:orientation="vertical"
+        android:orientation="horizontal"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentStart="true"
-        android:id="@+id/fragVLayout">
-
-        <LinearLayout
-            android:orientation="horizontal"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal">
-
-            <ImageButton
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:id="@+id/butPrev"
-                android:layout_gravity="left|center_vertical"
-                android:longClickable="false"
-                android:src="@drawable/prev"
-                android:layout_marginRight="6dp"
-                android:background="@android:color/transparent" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceLarge"
-                android:text="Large Text"
-                android:id="@+id/txtTitle"
-                android:layout_gravity="left"
-                android:layout_weight="4" />
-
-            <ImageButton
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:id="@+id/butNext"
-                android:src="@drawable/next"
-                android:layout_gravity="top|right"
-                android:layout_marginLeft="6dp"
-                android:background="@android:color/transparent" />
-        </LinearLayout>
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal">
 
         <ImageButton
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:id="@+id/img" />
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:id="@+id/butPrev"
+            android:layout_gravity="left|center_vertical"
+            android:longClickable="false"
+            android:layout_marginRight="6dp"
+            android:background="@drawable/prev" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textAppearance="?android:attr/textAppearanceLarge"
-            android:text="Question Body Text"
-            android:id="@+id/txtBody" />
+            android:text="Large Text"
+            android:id="@+id/txtTitle"
+            android:layout_gravity="left"
+            android:layout_weight="4" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textAppearance="?android:attr/textAppearanceSmall"
-            android:text="Small Text"
-            android:id="@+id/txtFooter"
-            android:gravity="end"
-            android:layout_gravity="bottom" />
+        <ImageButton
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:id="@+id/butNext"
+            android:layout_gravity="top|right"
+            android:layout_marginLeft="6dp"
+            android:background="@drawable/next" />
+    </LinearLayout>
+
+    <ImageButton
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/img"
+        android:scaleType="centerInside" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceLarge"
+        android:text="Question Body Text"
+        android:id="@+id/txtBody"
+        android:layout_gravity="center_vertical"
+        android:textAlignment="textStart"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="footer text"
+        android:id="@+id/txtFooter"
+        android:gravity="end"
+        android:layout_gravity="bottom"
+        android:layout_marginTop="4dp"
+        android:textColor="@android:color/black"
+        android:textSize="18sp"
+        android:layout_marginBottom="6dp" />
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#ccdbe8"
+        android:id="@+id/llSelectCad"
+        android:paddingLeft="8dp"
+        android:paddingRight="8dp">
 
         <TextView
             android:layout_width="wrap_content"
@@ -86,7 +103,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:id="@+id/llCandidate"
-            android:layout_gravity="top|center_horizontal">
+            android:layout_gravity="top|center_horizontal"
+            android:background="#ccdbe8"
+            android:layout_marginTop="16dp">
 
             <ImageButton
                 android:layout_width="wrap_content"
@@ -102,7 +121,8 @@
                 android:text="@string/chooseNow"
                 android:id="@+id/txtAddNow"
                 android:layout_gravity="center_vertical"
-                android:layout_marginLeft="10dp" />
+                android:layout_marginLeft="10dp"
+                android:clickable="true" />
 
         </LinearLayout>
 
@@ -110,34 +130,86 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textAppearance="?android:attr/textAppearanceSmall"
-            android:text="."
             android:id="@+id/txtCandidate"
-            android:layout_gravity="center_horizontal" />
-
-        <LinearLayout
-            android:orientation="horizontal"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="19dp">
-
-            <ImageButton
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:id="@+id/butStart"
-                android:layout_gravity="left|center_horizontal"
-                android:src="@drawable/start"
-                android:background="@android:color/transparent" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceMedium"
-                android:text="Medium Text"
-                android:id="@+id/txtStartPrompt"
-                android:layout_gravity="center_vertical"
-                android:layout_marginLeft="10dp" />
-        </LinearLayout>
-
+            android:layout_gravity="left" />
     </LinearLayout>
 
-</RelativeLayout>
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="#d2ecd5"
+        android:id="@+id/llStartStop"
+        android:paddingLeft="8dp"
+        android:paddingBottom="32dp"
+        android:paddingTop="6dp"
+        android:paddingRight="6dp">
+
+        <ImageButton
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/butStart"
+            android:layout_gravity="left|center_horizontal"
+            android:src="@drawable/start"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="2dp"
+            android:background="@android:color/transparent" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="Medium Text"
+            android:id="@+id/txtStartPrompt"
+            android:layout_gravity="center_vertical"
+            android:layout_marginLeft="10dp"
+            android:clickable="true" />
+    </LinearLayout>
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="6dp"
+        android:id="@+id/llFooter"
+        android:paddingBottom="32dp">
+
+        <ImageButton
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:id="@+id/butPrevBot"
+            android:layout_gravity="left|center_vertical"
+            android:longClickable="false"
+            android:layout_marginRight="6dp"
+            android:background="@drawable/prev"
+            android:paddingTop="4dp"
+            android:paddingRight="4dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:text="@string/qnavfooter"
+            android:id="@+id/txtTitleBot"
+            android:layout_weight="4"
+            android:layout_gravity="center"
+            android:textAlignment="center"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp" />
+
+        <ImageButton
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:id="@+id/butNextBot"
+            android:layout_gravity="top|right"
+            android:layout_marginLeft="6dp"
+            android:background="@drawable/next"
+            android:paddingRight="4dp"
+            android:paddingTop="4dp" />
+    </LinearLayout>
+</LinearLayout>
+
+
+</ScrollView>

@@ -20,7 +20,14 @@
         <LinearLayout
             android:orientation="horizontal"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:backgroundTint="@android:color/darker_gray"
+            android:baselineAligned="false"
+            android:gravity="fill_horizontal"
+            android:background="#dbd7d7"
+            android:contentDescription="Questionnaire options"
+            android:divider="#b4a5a5"
+            android:id="@+id/llToolbar2">
 
             <ImageButton
                 android:layout_width="wrap_content"
@@ -38,7 +45,9 @@
                 android:contentDescription="Set Staff Member ID"
                 android:contextClickable="false"
                 android:src="@drawable/plususer"
-                android:clickable="true" />
+                android:clickable="true"
+                android:layout_gravity="left"
+                android:layout_marginLeft="4dp" />
 
             <ImageButton
                 android:layout_width="wrap_content"
@@ -47,7 +56,9 @@
                 android:contentDescription="New Questionnaire"
                 android:clickable="false"
                 android:contextClickable="false"
-                android:src="@drawable/question" />
+                android:src="@drawable/backmain"
+                android:layout_gravity="left"
+                android:layout_marginLeft="4dp" />
 
             <ImageButton
                 android:layout_width="wrap_content"
@@ -55,16 +66,24 @@
                 android:id="@+id/butPurge"
                 android:src="@drawable/delete"
                 android:layout_gravity="right"
-                android:contentDescription="Delete Uploaded Questionnaires"
-                android:contextClickable="false" />
+                android:contentDescription="@string/delPurge"
+                android:cropToPadding="true"
+                android:layout_marginLeft="16dp" />
 
         </LinearLayout>
+
+        <ProgressBar
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:id="@+id/progressBar" />
+
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textAppearance="?android:attr/textAppearanceLarge"
-            android:text="Large Text"
+            android:text="@string/upload_toptext"
             android:id="@+id/tvStatus"
             android:layout_alignParentTop="true"
             android:layout_alignParentLeft="true"

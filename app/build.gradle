@@ -8,8 +8,8 @@ android {
         applicationId "uk.co.cga.hristest"
         minSdkVersion 14
         targetSdkVersion 23
-        versionCode 1
-        versionName "1.0"
+        versionCode 8
+        versionName "1.08 Mar 16"
     }
     buildTypes {
         release {

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">HRISTest</string>
+    <string name="app_name">Inquisitor</string>
     <string name="app_desc">HRIS Staff Testing application</string>
 
     <!-- Strings related to login -->
@@ -16,7 +16,7 @@
     <string name="permission_rationale">Network permissions are needed for validating login and permissions first time.
     </string>
     <!-- strings for utils and database -->
-    <string name="imgurl">https://hrisrss.org/img/</string>
+    <string name="imgurl">https://hrisrss.org/q/img/</string>
     <string name="qurl">https://hrisrss.org/q/</string>
     <string name="apiurl">https://hrisrss.org/cgi-bin/api.pl</string>
     <string name="save_path">data/uk.co.HRISTest/</string>
@@ -51,4 +51,17 @@
     <string name='candBottom'>Use settings to limit the list to an area. You can only see staff in areas your HRIS login gives you permission to see.</string>
     <string name="title_activity_upload">Completed Questionnaires</string>
     <string name="upload_toptext">Stored Questionnaires</string>
+    <string name="upload_noQ">No Stored Questionnaires</string>
+    <string name="delPurge">Delete Uploaded Questionnaires</string>
+    <string name="delSel">Delete selected questionnaire?</string>
+    <string name="uploading">Uploading...</string>
+    <string name="nostaff">No staff member added</string>
+    <string name="setstaff">Set staff member now</string>
+    <string name="answerImgDesc">click to choose this as answer</string>
+    <string name="qnavfooter">Swipe left or right or click buttons</string>
+    <string name="wait1">Reading saved qestionnaires.</string>
+    <string name="errImg">Error loading image.</string>
+    <string name="errLogin1">Cannot access internet to check login.</string>
+    <string name="errLogin2">Error accessing internet to check login.</string>
+    <string name="errLogin3">No reply from server, please check your settings and try again.</string>
 </resources>

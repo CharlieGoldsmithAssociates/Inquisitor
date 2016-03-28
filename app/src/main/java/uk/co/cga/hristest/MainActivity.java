@@ -36,7 +36,8 @@ public class MainActivity extends AppCompatActivity {
         int iPos=0;
         for( String sqRef : aQuestionnaires )
         {
-            // note this loads all wustionairs into memory
+            Log.v("HRISLOG","Loading questionnaires.."+sqRef);
+            // note this loads all questionaires into memory
             cQuestionnaire cQ = new cQuestionnaire(sqRef);
             mDisplay.add(iPos, cQ.qTitle());
             iPos++;

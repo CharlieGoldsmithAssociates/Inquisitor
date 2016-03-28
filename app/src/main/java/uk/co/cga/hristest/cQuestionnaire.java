@@ -1,5 +1,8 @@
 package uk.co.cga.hristest;
 
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.util.Log;
 
 import java.io.BufferedReader;
@@ -35,6 +38,7 @@ public class cQuestionnaire {
     public static final String TIMEALLOWED="TIMEALLOWED";
     public static final String STAFFID="STAFFID";
     public static final String STAFFNAME="STAFFNAME";
+    public static final String STAFFPROMPT="STAFFPROMPT";
     public static final String SAVED="SAVED"   ;
     public static final String SAVEFILE="SAVEFILE"   ;
     public static final String UPLOADED="UPLOADED"   ;
@@ -43,7 +47,7 @@ public class cQuestionnaire {
     public static final String SUMMARY="SUMMARY";
     public static final String MARK="MARK";
     public static final String UID="UID";
-    public static final String ADJUCICATOR="ADJUCICATOR";
+    public static final String ADJUDICATOR="ADJUDICATOR";
 
     public String msQRef;
 
@@ -78,6 +82,14 @@ public class cQuestionnaire {
     {
         return cGlobal.getPref(msQRef + STAFFNAME,"");
     }
+    public void setStaffPrompt( String sPrompt )
+    {
+        cGlobal.setPref(msQRef + STAFFPROMPT, sPrompt);
+    }
+    public String getStaffPrompt( String sPrompt )
+    {
+        return cGlobal.getPref(msQRef + STAFFPROMPT, "");
+    }
 
     public void Start()
     {
@@ -92,7 +104,7 @@ public class cQuestionnaire {
         {
             // number of options 
             int iOptions = Integer.parseInt(
-                    cGlobal.getPref( msQRef+ String.format(OPTIONS+"_%2d",iQ),"0" ) );
+                    cGlobal.getPref( msQRef+ String.format(OPTIONS+"_%02d",iQ),"0" ) );
             int iChosenQ=1;
             if ( iOptions> 1 )
                 iChosenQ = 1+R.nextInt(iOptions);
@@ -103,7 +115,7 @@ public class cQuestionnaire {
 
         // store adjudicator for reference
         cGlobal.setPref(msQRef + UID , cGlobal.curUID());
-        cGlobal.setPref(msQRef + ADJUCICATOR , cGlobal.curAdjudicatorName());
+        cGlobal.setPref(msQRef + ADJUDICATOR , cGlobal.curAdjudicatorName());
     }
 
     public void End ()
@@ -114,11 +126,11 @@ public class cQuestionnaire {
         cGlobal.setPref(msQRef + END, sTS);
         Log.d("HRISLOG", "End at " + sTS);
 
-        cGlobal.setPref(msQRef + SAVED, "");
-        cGlobal.setPref(msQRef + UPLOADED, "");
+        cGlobal.unsetPref(msQRef + SAVED);
+        cGlobal.unsetPref(msQRef + UPLOADED);
 
         // mark the questions/ build the summary text
-        doSummary(null,true); // calls doMark, updates MARK & SUMMARY Tags
+        doSummary(null, true); // calls doMark, updates MARK & SUMMARY Tags
 
         saveQuestionnaire(false);
         // next stage - nect candidate/ back to select questionnaire
@@ -150,7 +162,8 @@ public class cQuestionnaire {
         int iQ;
         for(iQ=1; iQ <= noQuestions() ; iQ++ )
         {
-            if ( getChosenAnswer(iQ) == -1 )
+            // 1.07 allow zero questions
+            if( qNoAnswers(iQ )>0 && getChosenAnswer(iQ) == -1 )
                 bReply = false;
         }
         return bReply;
@@ -234,6 +247,27 @@ public class cQuestionnaire {
         return cGlobal.getPref(msQRef + PROMPT + "_" + iAnswer + "_" + chosenQuestionRef(iQuestion), "");
     }
 
+    public static Boolean isStringImageFile( String sText)
+    {
+        if ( sText == null ) return false;
+        if ( sText.length()< 2 || sText.length()>20 ) return false;
+        String sTmp = sText.toLowerCase();
+        if (sTmp.endsWith(".png") ||
+                sTmp.endsWith(".jpg") ||
+                sTmp.endsWith(".jpeg") ||
+                sTmp.endsWith(".gif") ||
+                sTmp.endsWith(".png")
+                ) {
+
+            return true;
+        }
+        return false;
+    }
+
+    public Boolean isAnswerImageFile( int iQ, int iA )
+    {
+        return cQuestionnaire.isStringImageFile(qAnswerPrompt(iQ, iQ));
+    }
 
     //--------------------------------
     // user choice storage - done by sub question for ease of marking
@@ -251,7 +285,10 @@ public class cQuestionnaire {
     {
         cGlobal.setPref(msQRef+CORRECT+"_"+chosenQuestionRef(iQuestion),String.format("%d",iAnswer));
     }
-
+    public int getCorrectAnswer (int iQuestion )
+    {
+        return cGlobal.getPref(msQRef+CORRECT+"_"+chosenQuestionRef(iQuestion),-1);
+    }
 
     // nb save as completed questionnair in saved/ folder
     // not as a template : use sabeTemplate for that
@@ -300,7 +337,7 @@ public class cQuestionnaire {
 
     }
 
-    public static void saveTemplate(String sQRef, String sQText)
+    public static void saveTemplate(String sQRef, String sQText, Handler uiProgress )
     {
         String sFile =qTemplateFileName(sQRef);
 
@@ -313,8 +350,14 @@ public class cQuestionnaire {
                 if (iPos>0) {
                     String sKey = sLine.substring(0, iPos).toUpperCase().trim();
                     String sValue = sLine.substring(iPos + 1).trim();
-                    if (sKey.contains(IMG+"_")) {
-                        imageManager.DownloadFromUrl(sValue);
+                    if (sKey.equals(IMG) && sValue.length()>0 ) {
+                        statusReport(uiProgress,"Checking image "+sValue);
+                        imageManager.DownloadFromUrl(sQRef,sValue);
+
+                    }
+                    if (sKey.contains(PROMPT + "_") && isStringImageFile(sValue) ) {
+                        statusReport(uiProgress,"Checking image "+sValue);
+                        imageManager.DownloadFromUrl(sQRef,sValue);
                     }
                 }
             }
@@ -334,6 +377,7 @@ public class cQuestionnaire {
         {
             Log.e("HRISLOG","Cannot save questionnaire file " + sFile);
         }
+        statusReport(uiProgress,"SavingTemplate "+sQRef+":done");
     }
 
     private  static String qTemplateFileName( String sBase )
@@ -380,46 +424,98 @@ public class cQuestionnaire {
         cGlobal.unsetPref(msQRef + SAVEFILE );
         cGlobal.unsetPref(msQRef + UPLOADED );
         cGlobal.unsetPref(msQRef + STAFFID );
-        cGlobal.unsetPref(msQRef + STAFFNAME );
+        cGlobal.unsetPref(msQRef + STAFFNAME);
         int iQ;
         for( iQ=1;iQ<= noQuestions(); iQ++)
         {
             setChosenAnswer(iQ,-1);
             // and reset chose quesiton
             cGlobal.unsetPref(msQRef + String.format(QSTUSED+"_%02d", iQ));
+
         }
 
     }
 
-    public static ArrayList<String> listSavedQuestionnaires (Boolean bUploadedOnly )
+
+    public static ArrayList<String> listSavedQuestionnaires ( Handler uiProgress )
     {
+        return listSavedQuestionnaires(0,uiProgress);
+    }
+    public static ArrayList<String> listSavedQuestionnaires ( )
+    {
+        return listSavedQuestionnaires( 0,null);
+    }
+    public static ArrayList<String> listSavedQuestionnaires (Boolean bUploadedState )
+    {
+        if ( bUploadedState)
+            return listSavedQuestionnaires( 1,null);
+        return listSavedQuestionnaires( 2,null);
+    }
+
+    public static ArrayList<String> listSavedQuestionnaires (int iUploadedMode, Handler uiProgress )
+    {
+        Log.v("HRISLOG", "List saved questionnaires "+ iUploadedMode);
         String sPath =PATH + "save/";
         File fSpec = new File(sPath);
         ArrayList<String> aReply = new ArrayList<>();
+        File[] fList = fSpec.listFiles();
+        int iCount=0;
 
-        for ( File f : fSpec.listFiles() )
+        if ( uiProgress != null )
         {
+            Log.v("HRISLOG", "List saved questionnaires : init status");
+
+            Bundle b = new Bundle();
+            b.putInt("MAX", fList.length );
+            b.putInt("PROG", 0 );
+            Message msg = new Message();
+        }
+
+
+        for ( File f : fList  )
+        {
+            iCount++;
+            if ( uiProgress != null ) uiProgress.sendEmptyMessage(iCount);
+
             if ( f.isFile() )
             {
                 String sFile = f.getName();
                 if ( sFile.endsWith(".hrisq")) {
                     Boolean bAdd = true;
                     String sSavedQRef = sFile.substring(0, sFile.length() - 6);
-                    if ( bUploadedOnly )
+                    if ( iUploadedMode>0 )
                     {
                         // more work, read file and check if uploaded time is set
+                        Log.v("HRISLOG", "List saved questionnaires : loading "+sSavedQRef);
                         HashMap<String,String> hm = loadSavedQuestionnaire(sSavedQRef);
-                        if (hm != null && hm.containsKey(UPLOADED))
-                            bAdd = true;
+                        if (hm != null )
+                        {
+                            if ( hm.containsKey(UPLOADED) )
+                            {
+                                // uploaded - is that what we want ?
+                                if ( iUploadedMode == 1)
+                                    bAdd = true;
+                                else
+                                    bAdd=false;
+                            }
+                            else
+                            {
+                                // not uploaded is that what we want
+                                if ( iUploadedMode == 0)
+                                    bAdd = true;
+                                else
+                                    bAdd=false;
+                            }
+                        }
                         else
-                            bAdd= false;
+                            bAdd= false;// err
                     }
                     if ( bAdd )
                         aReply.add(sSavedQRef);
                 }
             }
         }
-
+        Log.v("HRISLOG", "List saved questionnaires : done "+aReply.size());
         return aReply;
     }
 
@@ -459,6 +555,11 @@ public class cQuestionnaire {
     {
         HashMap<String,String> hReply= new HashMap<String,String>();
         // saved qref = qref_timestamp to be loaded from the saved path
+        int iPos = 0;
+        int iNextPos;
+        // last index of _ in name
+        while( (iNextPos= sSavedQRef.indexOf('_',iPos+1 ) )>iPos ) iPos = iNextPos;
+        String sTemplate= sSavedQRef.substring(0,iPos).toUpperCase();
 
         // load the core details
         String sFile = qQuestionnaireFileName(sSavedQRef);
@@ -472,19 +573,26 @@ public class cQuestionnaire {
                 Log.e("HRISLOG","Cannot open saved questionnaire file " + sFile);
                 return null;
             }
+            // first entry is tremplate name...
+            hReply.put("TEMPLATE",sTemplate);
+            hReply.put("SAVEREF",sSavedQRef);
+
             FileReader fr = new FileReader(fTemp);
             BufferedReader sr = new BufferedReader(fr);
             String sLine;
             while ( (sLine = sr.readLine()) != null )
             {
                 // key = value
-                int iPos = sLine.indexOf('=');
+                iPos = sLine.indexOf('=');
                 if ( iPos>0) {
                     // don't split we only want first =
                     String sKey = sLine.substring(0, iPos).toUpperCase().trim();
                     String sValue = sLine.substring(iPos + 1).trim();
+                    String sRawKey = sKey;
+                    if ( sKey.startsWith(sTemplate))
+                        sRawKey= sKey.substring(sTemplate.length());
                     // no need to decode # questions etc
-                    hReply.put(sKey,sValue);
+                    hReply.put(sRawKey,sValue);
                 }
             }
 
@@ -499,16 +607,50 @@ public class cQuestionnaire {
         return hReply;
     }
 
+    public static Boolean updateSavedQuestionnaire(String sSavedQRef, HashMap<String,String> hm)
+    {
+        Boolean bOk = false;
+        // load the core details
+        String sFile = qQuestionnaireFileName(sSavedQRef);
+        try {
+            String sTemplate = hm.get("TEMPLATE");
+            File fTemp = new File(sFile);
+            if ( fTemp.exists() )
+            {
+                fTemp.delete();
+            }
+            FileWriter fw = new FileWriter(fTemp);
+            for (String sKey: hm.keySet())
+            {
+                // key = value
+                fw.write( sTemplate+sKey+"="+ hm.get(sKey)+"\n");
+            }
+
+            fw.close();
+            bOk = true;
+        }
+        catch (Exception ex )
+        {
+            Log.e("HRISLOG","Cannot save  questionnaire file " + sFile);
+        }
+
+        return bOk;
+    }
+
+
     private String doMarking( String sQRef)
     {
         int iTotal=0;
         String sSummary="";
-        for ( int iQ=0; iQ < noQuestions();iQ++)
+        for ( int iQ=1; iQ <= noQuestions();iQ++)
         {
-            sSummary += String.format( "Q%d=",iQ);
-            int iChosen = cGlobal.getPref(sQRef + CHOICE, -1);
-            int iCorrect= cGlobal.getPref(sQRef + CORRECT, -1);
+            sSummary += String.format("Q%d=", iQ);
+            String sQuestionOption = chosenQuestionRef(iQ);
 
+            int iChosen = getChosenAnswer(iQ);
+            // so which is the correct answer in question iQ chosen option
+            int iCorrect= getCorrectAnswer(iQ);
+            Log.v("HRISLOG","Mark Q:"+iQ+" Answer:"+iChosen + " Correct:"+iCorrect );
             if ( iChosen >=0  ) {
                 if( iChosen==iCorrect ) {
                     iTotal++;
@@ -537,37 +679,37 @@ public class cQuestionnaire {
         if ( sSummary.length()>0 && !bForce) return sSummary;// already in store.
 
         // summary line for the saved list
-        sSummary = cGlobal.getPref(sQRef + STAFFNAME, "");
-        if ( sSummary.length()==0) sSummary="No staff member set yet";
-        sSummary += "["+ cGlobal.getPref(sQRef + STAFFID, "")+"]";
-        sSummary += "\n"+ doMarking(sQRef);
-        sSummary += "\n Started "+ cGlobal.getPref(sQRef+ STARTTIME,"");
-        long lEnd = cGlobal.getPref(sQRef+ END,0); // millisec/1000 = s
-        long lStart = cGlobal.getPref(sQRef+ START,0);
+        sSummary += doMarking(sQRef);
+        sSummary += "~~ Started "+ cGlobal.getPref(sQRef+ START,"");
+        
+        long lEnd = cGlobal.getPref(sQRef+ ENDTIME,0); // millisec/1000 = s
+        long lStart = cGlobal.getPref(sQRef+ STARTTIME,0);
         long lDur = lEnd-lStart;
         long iM = lDur/60;
         long iS = lDur - (iM*60);
-        sSummary += "  Time:"+ String.format("02d:%02d",iM,iS);
-        sSummary += "\n Adjudicator " + cGlobal.getPref(sQRef + ADJUCICATOR, "");
+        sSummary += "  Time:"+ String.format("%02d:%02d",iM,iS);
+        sSummary += "~~ Adjudicator " + cGlobal.getPref(sQRef + ADJUDICATOR, "");
         sSummary += " ["+ cGlobal.getPref(sQRef + UID, "") + "]";
 
         cGlobal.setPref(sQRef + SUMMARY, sSummary);
         return sSummary;
     }
 
-    // load a temnplate from file if not already in sharedprefs
+    // load a template from file if not already in sharedprefs
     // and clear any operational/ live values
     private void LoadTemplate(String sQRef)
     {
         if ( cGlobal.getPref(sQRef + LOADED, "").length()>0 ) return;// already in store.
-
+        long tStart = System.currentTimeMillis();
         // load the core details
         String sFile = qTemplateFileName(sQRef);
         String sCurrentQRef = "";
         HashMap<Integer,Integer> hmOptionCount = new HashMap<Integer,Integer>();
 
         try {
-            
+
+            long tNow = System.currentTimeMillis();
+            Log.v("HRISLOG", String.format("Load template started in %d ms", (tNow - tStart)));
             File fTemp = new File(sFile);
             if ( ! fTemp.exists() )
             {
@@ -576,15 +718,21 @@ public class cQuestionnaire {
                 Log.e("HRISLOG","Cannot open questionnaire file " + sFile);
                 return;
             }
+            cGlobal.startSetPrefSess();
+
             FileReader fr = new FileReader(fTemp);
             BufferedReader sr = new BufferedReader(fr);
             String sLine;
+            Integer iLine=0;
             while ( (sLine = sr.readLine()) != null )
             {
+                iLine++;
                 // key = value
                 int iPos = sLine.indexOf('=');
                 if ( iPos>0)
                 {
+                    tNow = System.currentTimeMillis();
+                    Log.v("HRISLOG", String.format("read line %d %d ms",iLine, (tNow - tStart)));
                     // don't split we only want first =
                     String sKey = sLine.substring(0,iPos).toUpperCase().trim();
                     String sValue = sLine.substring(iPos+1).trim();
@@ -601,21 +749,46 @@ public class cQuestionnaire {
                         sCurrentQRef = String.format("_%02d_%02d", iQ,iSubQ);
                     }
                     else
-                        cGlobal.setPref( sQRef+ sKey + sCurrentQRef , sValue );
+                        cGlobal.setPrefDelayed( sQRef+ sKey + sCurrentQRef , sValue );
+
+                    if (sKey.equals(IMG) && sValue.length()>0 ) {
+                        // in foreground now so just kick off a background check for the images..
+                        imageManager.DownloadInBackground(sQRef, sValue);
+                        tNow = System.currentTimeMillis();
+                        Log.v ( "HRISLOG", String.format("Started image bg check "+sValue+" after %d ms" , (tNow-tStart )) );
+                    }
+                    if (sKey.contains(PROMPT + "_") && isStringImageFile(sValue) ) {
+                        // in foreground now so just kick off a background check for the images..
+                        imageManager.DownloadInBackground(sQRef, sValue);
+                        tNow = System.currentTimeMillis();
+                        Log.v("HRISLOG", String.format("Started image bg check " + sValue + " after %d ms", (tNow - tStart)));
+
+                    }
                 }
             }
             
             sr.close();
             fr.close();
-            
+            tNow = System.currentTimeMillis();
+            Log.v("HRISLOG", String.format("Finished file read after %d ms", (tNow - tStart)));
+
             // and store the map of sub quesiton counts as well
             for(Integer iQ: hmOptionCount.keySet())
             {
-                cGlobal.setPref( sQRef+ String.format(OPTIONS+"_%02d",iQ), String.format("%d", hmOptionCount.get(iQ)) );
+                String sTmpV = String.format("%d", hmOptionCount.get(iQ));
+                String sTmpK = sQRef + String.format(OPTIONS + "_%02d", iQ);
+                cGlobal.setPrefDelayed(sTmpK,sTmpV );
             }
 
+            cGlobal.endSetPrefSess(); // write the data back..
+
+            tNow = System.currentTimeMillis();
+            Log.v("HRISLOG", String.format("Start reset template %d ms", (tNow - tStart)));
             resetTemplate();
             cGlobal.setPref(sQRef + LOADED, "1");
+
+            tNow = System.currentTimeMillis();
+            Log.v("HRISLOG", String.format("Load template done in %d ms", (tNow - tStart)));
         }
         catch (Exception ex )
         {
@@ -626,23 +799,35 @@ public class cQuestionnaire {
     }
 
 
-    static public String downloadQuestionnaire (String sQRef)
+    static public String downloadQuestionnaire (String sQRef, Handler uiProgress )
     {
         // get a template
         /*
         String sQ = cUtils.getAPIResult("GETQ", "?Q=" + sQRef);
         if ( !cUtils.isAPIResultOK(sQ))
             throw new AssertionError("Error downloading quesionnaire template "+ sQ );*/
-
-        String sTemplate = cUtils.getURL(cGlobal.getString(R.string.qurl) + sQRef + ".hrisq");
+        Log.i("HRISLOG","download template  file "+sQRef);
+        statusReport(uiProgress,"Downloading:"+sQRef);
+        String sTemplate = cUtils.getURL(cGlobal.getString(R.string.qurl) + sQRef + ".hrisq",uiProgress);
         if ( sTemplate.length() >0 )
-            cQuestionnaire.saveTemplate(sQRef, sTemplate);
+            cQuestionnaire.saveTemplate(sQRef, sTemplate, uiProgress);
         return sTemplate;
     }
 
-    static public ArrayList<String> listLocalTemplates ( String SUID )
+    static private String templatePath (String sUID)
     {
-        String sPath =PATH + cGlobal.curUID() ;
+        return PATH + "templates/"+ sUID ;
+    }
+    static public String templateRefFromPath ( String sTemplate)
+    {
+        String sPath = templatePath(cGlobal.curUID()) ;
+        if ( ! sTemplate.startsWith(sPath )) throw new AssertionError("Invalid template given");
+        return sTemplate.substring( sPath.length() );
+    }
+
+    static public ArrayList<String> listLocalTemplates ( String sUID )
+    {
+        String sPath = templatePath(sUID);
         File fSpec = new File(sPath);
         ArrayList<String> aReply = new ArrayList<>();
 
@@ -673,33 +858,52 @@ public class cQuestionnaire {
         return aReply;
     }
 
+    public static void statusReport ( Handler uiProgress, String sReport )
+    {
+        if ( uiProgress== null )return;
+        Bundle b = new Bundle(1);
+        b.putString("SUBMSG",sReport);
+        Message msg =new Message();
+        msg.setData(b);
+        uiProgress.sendMessage( msg );
+    }
 
-    static public int getAllQuestionnaires (String sUID)
+    static public int getAllQuestionnaires (String sUID, Handler uiProgress)
     {
         // list all templates
         int iCount = 0;
 
+        statusReport(uiProgress,"Checking for new templates");
         ArrayList<String> aList = getServerListQuestionnaires(sUID);
         ArrayList<String> aRemoteFiles = new ArrayList<String>();
         if ( aList.size() > 0 ) {
             // check for new/ changed ones..
             for (String sLine :aList) {
+                Log.i("HRISLOG","Check received template  file "+sLine);
                 String[] aFlds = sLine.split("\t");
 
                 String sFile = qTemplateFileName(aFlds[0]);
                 aRemoteFiles.add(aFlds[0]);
                 File fTst = new File(sFile);
                 Boolean bDownload = false;
-                if (!fTst.exists())
+                if (!fTst.exists()) {
                     bDownload = true;
+                    statusReport(uiProgress,"New Template:"+aFlds[0]);
+                }
                 else if (aFlds.length > 1) {
                     long iSize = fTst.length();
                     long iRemoteSize = Integer.parseInt(aFlds[1]);
+
+                    Log.i("HRISLOG","Check received template sizes "+ iSize + " remote="+ iRemoteSize);
                     if (iSize != iRemoteSize)
+                    {
+                        statusReport(uiProgress,"Template changed:"+aFlds[0]);
                         bDownload = true;
+                    }
+
                 }
                 if (bDownload)
-                    downloadQuestionnaire(aFlds[0]);
+                    downloadQuestionnaire(aFlds[0], uiProgress);
                 iCount++;
             }
             // remove any that are gone from server
@@ -708,13 +912,20 @@ public class cQuestionnaire {
             {
                 if (!aRemoteFiles.contains(sLocal) )
                 {
-                    Log.d("HRISLOG","TODO rremove local file ");
+                    Log.i("HRISLOG", "remove local template  file " + sLocal);
                     String sFile = qTemplateFileName(sLocal);
+                    // and the image files stored with this template
+                    imageManager.RemoveImagesForTemplate(sLocal);
                     File fTst = new File(sFile);
                     fTst.delete();
+                    statusReport(uiProgress, "Template removed:" + sLocal);
+
                 }
             }
         }
+
+        statusReport(uiProgress, String.format("%d Templates checked:",iCount));
+
         return iCount;
     }
 

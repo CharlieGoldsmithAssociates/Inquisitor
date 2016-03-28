@@ -23,7 +23,7 @@ public final class cGlobal {
         return main_Context;
     }
     public static String[] rUser; // user record for current user also in get/setPref "currentUSER"
-
+    private static SharedPreferences.Editor ed;
     public static cQuestionnaire cQActive; // the active questionnaire
 
     public static String curUID ()
@@ -68,7 +68,7 @@ public final class cGlobal {
 
     public static void logAdjudicatorOut (Context ctx )
     {
-        Log.i("HRISLOG","Logout");
+        Log.i("HRISLOG", "Logout");
         cGlobal.setPref("currentUSER","");
         rUser = null;
 
@@ -97,18 +97,47 @@ public final class cGlobal {
     public static void unsetPref ( String sKey )
     {
         try {
-            SharedPreferences.Editor ed = sp.edit();
+            if ( ed == null )
+                ed = sp.edit();
             ed.remove(sKey);
             ed.apply();
         } catch (Exception e) {
             e.printStackTrace();
+            ed=null;
         }
     }
     public static void setPref( String sKey, String sVal )
     {
-        SharedPreferences.Editor ed = sp.edit();
+        try {
+            if ( ed == null )
+                ed = sp.edit();
+
+            ed.putString(sKey, sVal);
+            ed.apply();
+        } catch (Exception e) {
+            e.printStackTrace();
+            ed=null;
+        }
+
+    }
+
+    public static void startSetPrefSess()
+    {
+        if ( ed == null )
+            sp.edit();
+    }
+    public static void endSetPrefSess()
+    {
+        try {
+            ed.apply();
+        } catch (Exception e) {
+            e.printStackTrace();
+            ed=null;
+        }
+    }
+    public static void setPrefDelayed(  String sKey, String sVal )
+    {
         ed.putString(sKey, sVal);
-        ed.apply();
     }
 
     public static String getString ( int iResId )

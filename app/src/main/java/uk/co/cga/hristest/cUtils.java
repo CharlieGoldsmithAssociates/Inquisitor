@@ -10,12 +10,16 @@ import android.os.Handler;
 import android.util.Log;
 
 import java.io.BufferedReader;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.URLEncoder;
 import java.security.MessageDigest;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Random;
 
 
@@ -67,7 +71,7 @@ public class cUtils {
 
     static public String getAPIResult ( String sAPIInstruction)
     {
-        return getAPIResult( sAPIInstruction,"");
+        return getAPIResult(sAPIInstruction, "");
     }
 
     static public String getAPIResult ( String sAPIInstruction, String sArgs )
@@ -76,6 +80,22 @@ public class cUtils {
         String sR = String.format("%d",r.nextInt(10000) );// random length inclusion to make ssl decod a modicum harder
         return getURL(cGlobal.getString(R.string.apiurl) + "?R=" + sR + "&K=" + cPwd.sAPIKey + "&F=" + sAPIInstruction + sArgs);
 
+    }
+
+    static public String postAPIForm ( String sAPIInstruction, Handler uiProgress, HashMap<String,String>hm )
+    {
+        Random r = new Random();
+        String sR = String.format("%d", r.nextInt(10000));// random length inclusion to make ssl decod a modicum harder
+        hm.put("R" , sR );
+        hm.put("K" , cPwd.sAPIKey );
+        hm.put("F", sAPIInstruction);
+        hm.put("UID", cGlobal.curUID());
+        String sReply = postURL(cGlobal.getString(R.string.apiurl),uiProgress, hm);
+        hm.remove("R");
+        hm.remove("K");
+        hm.remove("F");
+        hm.remove("UID");
+        return sReply;
     }
 
     static public String getURL ( String sURL)
@@ -93,8 +113,9 @@ public class cUtils {
 
     static public String getURL ( String sURL, Handler uiProgress)
     {
-        Log.d("HRISLOG", "getURL begining");
-        //Log.d("HRISLOG", "getURL url:" + sURL);
+        //Log.d("HRISLOG", "getURL begining");
+        // todo remove log that exposes pwds
+        Log.d("HRISLOG", "getURL url:" + sURL);
 
         StringBuilder sOut= new StringBuilder();
         if( isNetworkAvailable()) {
@@ -156,6 +177,86 @@ public class cUtils {
         return sOut.toString();
     }
 
+    static public String postURL ( String sURL, Handler uiProgress, HashMap<String,String> hm )
+    {
+        Log.d("HRISLOG", "putURL begining");
+        //Log.d("HRISLOG", "getURL url:" + sURL);
+
+        StringBuilder sOut= new StringBuilder();
+        String charset = "UTF-8";  // Or in Java 7 and later, use the constant: java.nio.charset.StandardCharsets.UTF_8.name()
+
+        if( isNetworkAvailable()) {
+            try {
+                long startTime = System.currentTimeMillis();
+                /* Open a connection to that URL. */
+                if (uiProgress != null) statusReport("Connecting..", uiProgress);
+                URL url = new URL(sURL);
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+                connection.setDoOutput(true); // Triggers POST.
+                connection.setRequestProperty("Accept-Charset", charset);
+                connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded;charset=" + charset);
+
+                String sAmp="";
+                String sForm="";
+                for( String sKey: hm.keySet())
+                {
+                    sForm += sAmp+sKey+"="+ URLEncoder.encode( hm.get(sKey), charset);
+                    sAmp="&";
+                }
+                OutputStream output = connection.getOutputStream();
+                output.write( sForm.getBytes() );
+
+                if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                /*
+                 * Define InputStreams to read from the URLConnection.
+                 */
+                    InputStreamReader isr = new InputStreamReader(connection.getInputStream());
+                    BufferedReader br = new BufferedReader(isr);
+                /*
+                 * Read bytes to the Buffer until there is nothing more to read(-1).
+                 */
+
+                    String sLine;
+                    int iCount = 0;
+                    int iLen = 0;
+                    while ((sLine = br.readLine()) != null) {
+                        iLen += sLine.length();
+                        sOut.append(sLine + "\n");
+                        iCount++;
+                        if ((iCount % 10) == 0 &&
+                                uiProgress != null)
+                            statusReport(String.format("Downloading  %d KB", (iLen / 1000)), uiProgress);
+                    }
+
+                    Log.d("HRISLOG", "getURL download ready in"
+                            + ((System.currentTimeMillis() - startTime) / 1000)
+                            + " sec, size=" + String.format("%d", sOut.length()));
+
+                    if (uiProgress != null)
+                        statusReport(String.format("Form sent OK, %d sec", ((System.currentTimeMillis() - startTime) / 1000))
+                                , uiProgress);
+
+
+                }
+                else
+                {
+                    if (uiProgress != null)
+                        statusReport("Error Connecting  %d" + connection.getResponseCode(), uiProgress);
+
+                    Log.d("HRISLOG", String.format("getURL download error %d after %d s ", connection.getResponseCode(),
+                            (System.currentTimeMillis() - startTime) / 1000));
+                }
+
+            }
+            catch (Exception e) {
+                Log.e("HRISLOG", "GetURL Exception: " + e.getMessage());
+                sOut = new StringBuilder(); // reply blank
+            }
+        }
+
+        return sOut.toString();
+    }
 
     public static String getTimestamp ()
     {

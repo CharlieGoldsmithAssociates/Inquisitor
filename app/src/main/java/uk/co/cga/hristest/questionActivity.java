@@ -2,6 +2,7 @@ package uk.co.cga.hristest;
 
 //import android.app.FragmentTransaction;
 import android.app.Activity;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -11,6 +12,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 
@@ -21,6 +23,9 @@ import android.support.v4.app.FragmentTransaction;
 import android.support.v4.view.ViewPager;
 import android.os.Bundle;
 
+import android.text.Html;
+import android.text.InputType;
+import android.text.Spanned;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -31,6 +36,7 @@ import android.view.ViewGroup;
 
 import android.view.ViewParent;
 import android.widget.CheckBox;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -60,23 +66,25 @@ public class questionActivity extends AppCompatActivity {
     private ViewPager mViewPager;
     public String sQR;// sCurrentQuestionnaireRef;
     public cQuestionnaire mQ;
+    public Boolean mbQuestionsStopped;
     public boolean misTimerRunning=false;
     public TimerTask mTimerTask;
     public TextView mtvTimer;
     static public Handler mMainHandler=null;
     public Timer mTimer = null;
     public FloatingActionButton  fabDone;
+    private LayoutInflater inflater;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_question);
-
+        mbQuestionsStopped=false;
         // set in mainactivity..
         // cGlobal.setPref("currQREF", aQuestionnaires.get(position));
         sQR = cGlobal.getPref("currQREF");
         mQ = new cQuestionnaire(sQR);
-
+        mbQuestionsStopped= false;
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         toolbar.setTitle(R.string.main_title);
         toolbar.setLogo(R.drawable.hrtest_icon);
@@ -88,6 +96,7 @@ public class questionActivity extends AppCompatActivity {
         toolbar.addView(mtvTimer);
         setSupportActionBar(toolbar);
 
+        inflater = LayoutInflater.from( getBaseContext() );
         // Create the adapter that will return a fragment for each of the questions
         mSectionsPagerAdapter = new SectionsPagerAdapter(getSupportFragmentManager());
 
@@ -106,6 +115,7 @@ public class questionActivity extends AppCompatActivity {
 
 
         // create the timer
+        mbQuestionsStopped=false;
         InitMainHandler(); // se mHandler
         InitTimerTask(); // init timer task
         mTimer = new Timer();
@@ -139,16 +149,26 @@ public class questionActivity extends AppCompatActivity {
     {
         endInquisition(null);
     }
-    public void endInquisition(View v)
-    {
-        if ( misTimerRunning )
-        {
+    public void endInquisition(View v) {
+        mbQuestionsStopped = true;
+        if (misTimerRunning || mTimerTask != null) {
             mTimerTask.cancel();
-            mTimerTask=null;
-            misTimerRunning=false;
+            mTimerTask = null;
+            misTimerRunning = false;
         }
 
-        // TODO perhaps one last change to name it/ add a reminder of who took it..
+        // one last change to name it/ add a reminder of who took it..
+        if (!mQ.hasStaffDetails()) {
+            doStaffPrompt(v);
+        }
+        else
+        {
+            endInquisitionStage2(v);
+        }
+    }
+
+    public void endInquisitionStage2 (View v )
+    {
         // some feedback to save saving...
         if ( v != null )
         {
@@ -193,6 +213,36 @@ public class questionActivity extends AppCompatActivity {
 
     }
 
+    public void doStaffPrompt (View v)
+    {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Please add a reminder of who took this test.");
+
+// Set up the input
+        final EditText input = new EditText(this);
+        final View vParent = v;
+
+        input.setInputType(InputType.TYPE_CLASS_TEXT );
+        builder.setView(input);
+
+        // Set up the buttons
+        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                mQ.setStaffPrompt( input.getText().toString() );
+                endInquisitionStage2(vParent);
+            }
+        });
+        /* cancel meaningless builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.cancel();
+                endInquisitionStage2(vParent);
+            }
+        });*/
+
+        builder.show();
+    }
 
     public void InitTimerTask ()
     {
@@ -214,7 +264,7 @@ public class questionActivity extends AppCompatActivity {
             @Override
             public void handleMessage(Message msg)
             {
-                if ( mtvTimer != null  )
+                if ( mtvTimer != null && ! mbQuestionsStopped )// belt and braces
                 {
                     if ( msg != null ) {
                         Bundle b = msg.getData();
@@ -242,8 +292,9 @@ public class questionActivity extends AppCompatActivity {
                         } else {
                             mtvTimer.setText(R.string.timerExpired);
                             mtvTimer.setBackgroundColor( Color.rgb(255,192,192));
-                            if ( mQ.isStarted() )
+                            if ( mQ.isStarted()  )
                             {
+                                mbQuestionsStopped=true;
                                 endInquisition();
 
                             }
@@ -264,6 +315,7 @@ public class questionActivity extends AppCompatActivity {
      */
     public static class QuestionFragment extends Fragment {
         private String sQR ;
+        private ImageButton mbStart;
         private cQuestionnaire mQ;
         private int miQuestion;
 //        private static Handler mHandler;
@@ -350,10 +402,24 @@ public class questionActivity extends AppCompatActivity {
 
             ImageButton butPrev = (ImageButton)rootView.findViewById(R.id.butPrev);
             butPrev.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) { onPrevClicked(v); } } );
-
+                public void onClick(View v) {
+                    onPrevClicked(v);
+                }
+            });
+            ImageButton butPrevBot = (ImageButton)rootView.findViewById(R.id.butPrevBot);
+            butPrevBot.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    onPrevClicked(v);
+                }
+            });
             ImageButton butNext = (ImageButton)rootView.findViewById(R.id.butNext);
             butNext.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    onNextClicked(v);
+                }
+            });
+            ImageButton butNextBot = (ImageButton)rootView.findViewById(R.id.butNextBot);
+            butNextBot.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     onNextClicked(v);
                 }
@@ -367,7 +433,13 @@ public class questionActivity extends AppCompatActivity {
                     callStaffChooser();
                 }
             });
-
+            TextView txtAddNow = (TextView)rootView.findViewById(R.id.txtAddNow);
+            txtAddNow.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    callStaffChooser();
+                }
+            });
 
             Log.d("HRISLOG", String.format("Set up page %d ,started ", miQuestion));
 
@@ -375,10 +447,12 @@ public class questionActivity extends AppCompatActivity {
 
             // page 1 - title/home
             // pages 2-'n' are questions 1-n
+            LinearLayout llSelCand = (LinearLayout) rootView.findViewById(R.id.llSelectCad) ;
             LinearLayout lv = (LinearLayout)rootView.findViewById(R.id.fragVLayout);
+            LinearLayout llFooter = (LinearLayout)rootView.findViewById(R.id.llFooter);
             TextView tvTmp;
             ImageView ivTmp;
-
+            String sTmp="";
             ArrayList<Integer> hidelist = new ArrayList<Integer>();
             if ( miQuestion == 0  )
             {
@@ -388,80 +462,59 @@ public class questionActivity extends AppCompatActivity {
                 hidelist.add(R.id.img);
 
                 tvTmp = (TextView) rootView.findViewById(R.id.txtTitle);
-                tvTmp.setText(mQ.qTitle());
 
+                tvTmp.setText( convertText(mQ.qTitle()) );
 
-                tvTmp =(TextView) rootView.findViewById(R.id.txtBody);
-                String sTmp = mQ.qDescription();
-                if ( sTmp.length() >0) {
-                    tvTmp.setText(sTmp);
-                    tvTmp.setVisibility(View.VISIBLE);
-                }
-                else
-                    tvTmp.setVisibility(View.GONE);
+                setTextOrGone(rootView, R.id.txtBody, mQ.qDescription());
 
-                tvTmp =(TextView) rootView.findViewById(R.id.txtCandidate);
-                String sName = mQ.getStaffName();
-                if ( sName.length() >0) {
-                    tvTmp.setText(sName);
-                    tvTmp.setVisibility(View.VISIBLE);
-                }
-                else
-                    tvTmp.setVisibility(View.GONE);
+                setTextOrGone(rootView, R.id.txtCandidate, mQ.getStaffName());
+                llSelCand.setVisibility(View.VISIBLE);
 
-                ImageButton bStart = (ImageButton)rootView.findViewById(R.id.butStart);
-                bStart.setVisibility(View.VISIBLE);
-                bStart.setOnClickListener(new View.OnClickListener() {
+                mbStart = (ImageButton)rootView.findViewById(R.id.butStart);
+                mbStart.setVisibility(View.VISIBLE);
+                mbStart.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
-                        questionActivity athis = (questionActivity) getActivity();
-                        ImageButton ib = (ImageButton)v;
-                        if (mQ.isStarted())
-                        {
-                            Log.d("HRISLOG", String.format("END!"));
-                            athis.endInquisition();
-                            ib.setVisibility(View.GONE);
-                        }
-                        else
-                        {
-                            Log.d("HRISLOG", String.format("START!"));
-
-                            mQ.Start();// start timer and choose which questions we're going for
-                            ib.setImageResource(R.drawable.stop);
-                            athis.mSectionsPagerAdapter.notifyDataSetChanged();
-                            // rebuild - but we're in this list athis.mSectionsPagerAdapter = new SectionsPagerAdapter(getFragmentManager());
-                            athis.mSectionsPagerAdapter.setPage(1);
-                        }
+                        doStartStopClick(v);
                     }
                 });
 
                 tvTmp =(TextView) rootView.findViewById(R.id.txtStartPrompt);
+                tvTmp.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        doStartStopClick(v);
+                    }
+                });
+
                 sTmp = "";
 
                 if ( mQ.isStarted() )
                 {
                     // IN PROGRESS !
                     // show timer and stop button..
-                    bStart.setImageResource(R.drawable.stop);
-
+                    mbStart.setImageResource(R.drawable.stop);
+                    hidelist.add(R.id.llCandidate);
                     hidelist.add(R.id.butNow);
                     hidelist.add(R.id.txtAddNow);
 
+                    llFooter.setVisibility(View.VISIBLE);
                     butNext.setVisibility(View.VISIBLE);
                     butPrev.setVisibility(View.GONE);
+                    butNextBot.setVisibility(View.VISIBLE);
+                    butPrevBot.setVisibility(View.GONE);
 
                     sTmp = getString(R.string.qStop);
 
-                }
-                else
-                {
+                } else {
                     // not started
-                    bStart.setImageResource(R.drawable.start);
+                    mbStart.setImageResource(R.drawable.start);
 
                     sTmp = getString(R.string.qStart);
 
                     butNext.setVisibility(View.GONE);
                     butPrev.setVisibility(View.GONE);
+                    llFooter.setVisibility(View.GONE);
                 }
 
                 if ( sTmp.length() >0) {
@@ -476,47 +529,55 @@ public class questionActivity extends AppCompatActivity {
             {
                 int iQuestion = miQuestion;
                 int iNoQuesiton = mQ.noQuestions();
-                Log.v("HRISLOG", "Set up page " + miQuestion + " q="+iQuestion);
+                Log.v("HRISLOG", "Set up page " + miQuestion + " q=" + iQuestion);
 
-                butNext.setVisibility( ( iQuestion>= iNoQuesiton )? View.GONE: View.VISIBLE );
+                llFooter.setVisibility(View.VISIBLE);
+                butNext.setVisibility((iQuestion >= iNoQuesiton) ? View.GONE : View.VISIBLE);
                 butPrev.setVisibility(View.VISIBLE);
+                butNextBot.setVisibility((iQuestion >= iNoQuesiton) ? View.GONE : View.VISIBLE);
+                butPrevBot.setVisibility(View.VISIBLE);
 
-                String sTmp;
-                tvTmp =(TextView) rootView.findViewById(R.id.txtTitle);
-                sTmp= mQ.qTitle(iQuestion);
-                Log.v("HRISLOG", "Title " + sTmp);
-                if ( sTmp.length()>0 )
-                    tvTmp.setText(  sTmp );
-                else
-                    tvTmp.setVisibility(View.GONE);
+                setTextOrGone(rootView, R.id.txtTitle, mQ.qTitle(iQuestion));
 
-                tvTmp =(TextView) rootView.findViewById(R.id.txtBody);
-                sTmp= mQ.qText(iQuestion);
-                Log.v("HRISLOG", "Q Text " + sTmp);
-                if ( sTmp.length()>0 )
-                    tvTmp.setText(  sTmp );
-                else
-                    tvTmp.setVisibility(View.GONE);
+                setTextOrGone(rootView, R.id.txtBody, mQ.qText(iQuestion));
 
-                tvTmp =(TextView) rootView.findViewById(R.id.txtFooter);
-                sTmp= mQ.qFooter(iQuestion);
-                Log.v("HRISLOG", "Q foot " + sTmp);
-                if ( sTmp.length()>0 )
-                    tvTmp.setText(  sTmp );
-                else
-                    tvTmp.setVisibility(View.GONE);
+                setTextOrGone(rootView,R.id.txtFooter, mQ.qFooter(iQuestion));
 
                 ivTmp = (ImageView)rootView.findViewById( R.id.img);
                 sTmp=mQ.qImagePath(iQuestion);
                 Log.v("HRISLOG" , "Image "+ sTmp );
                 if ( sTmp.length()>0 ) {
-                    // belt and braces: get the image now if we don't already have it
-                    String sImgPath = imageManager.ImagePath(sTmp );
-                    File fTemp = new File( sImgPath );
-                    if ( !fTemp.exists())
-                        imageManager.DownloadFromUrl(sTmp);
-                    Bitmap bmImg = BitmapFactory.decodeFile(sImgPath);
-                    ivTmp.setImageBitmap(bmImg);
+                    try {
+                        String sImgPath = imageManager.ImagePath(mQ.msQRef, sTmp );
+                        File fTemp = new File( sImgPath );
+                        // belt and braces: get the image now if we don't already have it
+                        if ( !fTemp.exists())
+                            imageManager.DownloadFromUrl(mQ.msQRef,sTmp);
+                        Bitmap bmImg;
+                        Bitmap bmSrc = BitmapFactory.decodeFile(sImgPath);
+                        if ( bmSrc == null )
+                        {
+                            setTextOrGone(rootView, R.id.txtBody, "Failed to load image\n"+sTmp);
+                            Log.e("HRISLOG","Failed to load "+sImgPath);
+
+                        }
+                        else {
+                            int iNewW = bmSrc.getWidth();
+                            if (bmSrc.getHeight() < 256) {
+                                //. nothin is laid out yet so we can't use getHeight on any parents etc.
+                                // make it 'big enough it can be scaled back
+                                iNewW *= 256;
+                                iNewW /= bmSrc.getHeight();
+                                bmImg = Bitmap.createScaledBitmap(bmSrc, iNewW, 256, false);
+                            } else
+                                bmImg = bmSrc;
+                            ivTmp.setImageBitmap(bmImg);
+                        }
+                    } catch (Exception e) {
+                        //e.printStackTrace();
+                        setTextOrGone(rootView, R.id.txtBody, "Failed to load image\n"+sTmp);
+                        Log.e("HRISLOG", "Failed to load " + sTmp + " "+ e.getMessage());
+                    }
                 }
                 else
                     ivTmp.setVisibility(View.GONE);
@@ -527,39 +588,116 @@ public class questionActivity extends AppCompatActivity {
                 Log.v("HRISLOG", "Answers for q "+iQuestion+ "=" + iNoAnswers);
 
                 CheckBox cbTmp;
+                TextView tbTmp;
+
                 int iA;
                 for ( iA =1 ;iA<= iNoAnswers;iA++)
                 {
-                    cbTmp = new CheckBox(rootView.getContext());
-                    cbTmp.setText(mQ.qAnswerPrompt(iQuestion, iA));
-                    cbTmp.setTextSize(24);
-                    cbTmp.setPadding(0, 6, 0, 6);
-                    cbTmp.setVisibility(View.VISIBLE);
+                    LinearLayout llPrompt = (LinearLayout) inflater.inflate(R.layout.layoutanswerline, null);
+                    llPrompt.setId(1000 + (10 * iQuestion) + iA);// conflicting view on this one but seems to work
+
                     HashMap<Integer,Object> hm = new HashMap<Integer,Object>();
                     hm.put(0, iA);
                     hm.put(1, iQuestion);
                     hm.put(2, mQ);
+                    llPrompt.setTag(hm);
+                    llPrompt.setOnClickListener(new View.OnClickListener() {
+                        public void onClick(View v) {
+                            onAnswerClicked(v,true);
+                        }
+                    });
+                    cbTmp = (CheckBox) llPrompt.findViewById(R.id.cbAnswer);
+                    tbTmp = (TextView) llPrompt.findViewById(R.id.txAnswer);
+                    ivTmp = (ImageView) llPrompt.findViewById(R.id.imAnswer);
+
+                    cbTmp.setText("");
+                    cbTmp.setTextSize(24);
+                    cbTmp.setPadding(0, 6, 0, 6);
+                    cbTmp.setVisibility(View.VISIBLE);
+                    // set the tag
                     cbTmp.setTag(hm); // don't use the tag indexes http://stackoverflow.com/questions/2434988/android-view-gettag-settag-and-illegalargumentexception
-                    cbTmp.setId( 1000+(10*iQuestion)+ iA );// conflicting view on this one but seems to work
-                    cbTmp.setOnClickListener( new View.OnClickListener() {
-                        public void onClick(View v) { onAnswerClicked(v); } } );
+                    cbTmp.setOnClickListener(new View.OnClickListener() {
+                        public void onClick(View v) {
+                            onAnswerClicked(v,false);
+                        }
+                    });
+
+                    // prompt is text or image
+                    String sPrompt = mQ.qAnswerPrompt(iQuestion, iA);
+
+                    Boolean bUseImage = false;
+                    Bitmap bmImg =null;
+                    if ( cQuestionnaire.isStringImageFile(sPrompt) ) {
+
+                        try {
+                            String sImgPath = imageManager.ImagePath(mQ.msQRef, sPrompt);
+                            File fTemp = new File(sImgPath);
+                            if (fTemp.exists()) {
+                                Bitmap bmSrc = BitmapFactory.decodeFile(sImgPath);
+                                int iNewW = bmSrc.getWidth();
+                                if ( bmSrc.getHeight() < 180 ) {
+                                    //. nothin is laid out yet so we can't use getHeight on any parents etc.
+                                    // make it 'big enough it can be scaled back
+                                    iNewW *= 180;
+                                    iNewW /= bmSrc.getHeight();
+                                    bmImg = Bitmap.createScaledBitmap(bmSrc, iNewW,180, false);
+                                }
+                                else
+                                    bmImg = bmSrc;
+
+                                bUseImage = true;
+                            }
+                            // else file does not exists - use string as question
+                        } catch (Exception e) {
+                            //e.printStackTrace();
+                            Log.e("HRISLOG","Error loading image "+ sPrompt + " " + e.getMessage());
+                            sPrompt = getString(R.string.errImg) +" "+ sPrompt;
+                            bUseImage = false;
+                        }
+                    }
+
+                    if ( bUseImage && bmImg != null )
+                    {
+                        ivTmp.setImageBitmap(bmImg);
+                        ivTmp.setTag(hm);
+                        ivTmp.setOnClickListener(new View.OnClickListener() {
+                            public void onClick(View v) {
+                                onAnswerClicked(v,false);
+                            }
+                        });
+                        tbTmp.setVisibility(View.GONE);
+                    }
+                    else
+                    {
+                        ivTmp.setVisibility(View.GONE);
+                        tbTmp.setText(convertText(sPrompt));
+                        tbTmp.setTag(hm);
+                        tbTmp.setOnClickListener(new View.OnClickListener() {
+                            public void onClick(View v) {
+                                onAnswerClicked(v, false);
+                            }
+                        });
+                    }
                     // restore choice if any
                     cbTmp.setChecked ( iA == iChoice );
                     if ( cbTmp.isChecked() )
-                        cbTmp.setBackgroundColor(Color.GREEN );
+                        llPrompt.setBackgroundColor(Color.GREEN );
                     else
-                        cbTmp.setBackgroundColor(Color.WHITE );
-                    lv.addView((View)cbTmp,2+iA);
+                        llPrompt.setBackgroundColor(Color.WHITE );
+
+                    lv.addView((View)llPrompt,2+iA);
 
                 }
 
-                // todo put this lot in a single panel we can hide
-                hidelist.add (R.id.txtCandidate);
-                hidelist.add (R.id.txtCandPrompt);
-                hidelist.add ( R.id.llCandidate);
-                hidelist.add (R.id.butNow);
-                hidelist.add (R.id.txtStartPrompt);
-                hidelist.add ( R.id.butStart);
+                // hide the first page working panels
+                hidelist.add (R.id.llSelectCad);
+                //hidelist.add (R.id.txtCandidate);
+                //hidelist.add (R.id.txtCandPrompt);
+                //hidelist.add ( R.id.llCandidate);
+                hidelist.add(R.id.llStartStop);
+                //hidelist.add (R.id.butNow);
+                //hidelist.add (R.id.txtStartPrompt);
+                //hidelist.add ( R.id.butStart);
 
             }
             Log.v("HRISLOG", "hidelist ");
@@ -569,6 +707,51 @@ public class questionActivity extends AppCompatActivity {
             }
             Log.v("HRISLOG", "create view done ");
             return rootView;
+        }
+
+        public Spanned convertText ( String sIn )
+        {
+            sIn = sIn.replace("~~","<br/>");
+
+            return Html.fromHtml(sIn, null, null);
+        }
+        public void doStartStopClick(View v )
+        {
+            questionActivity athis = (questionActivity) getActivity();
+
+            if (mQ.isStarted())
+            {
+                mbStart.setVisibility(View.INVISIBLE);
+                Log.d("HRISLOG", String.format("END!"));
+                athis.endInquisition();
+
+            }
+            else
+            {
+                Log.d("HRISLOG", String.format("START!"));
+                mbStart.setImageResource(R.drawable.stop);
+                mQ.Start();// start timer and choose which questions we're going for
+
+
+                athis.mSectionsPagerAdapter.notifyDataSetChanged();
+                // rebuild - but we're in this list athis.mSectionsPagerAdapter = new SectionsPagerAdapter(getFragmentManager());
+                athis.mSectionsPagerAdapter.setPage(1);
+            }
+        }
+
+        public void setTextOrGone ( View rootView, int ires, String sVal )
+        {
+            TextView tvTmp =(TextView) rootView.findViewById(ires);
+            // allow some mark up in the body/footer texts
+
+            if ( sVal != null && sVal.length() >0) {
+                //tvTmp.setText(sVal);
+
+                tvTmp.setText(convertText(sVal));
+                tvTmp.setVisibility(View.VISIBLE);
+            }
+            else
+                tvTmp.setVisibility(View.GONE);
         }
 
         public void  onPrevClicked(View v) {
@@ -606,19 +789,32 @@ public class questionActivity extends AppCompatActivity {
         }
 
 
-        public static void  onAnswerClicked(View view)
+        public static void  onAnswerClicked(View view, Boolean bIsContainer )
         {
-            CheckBox cb = (CheckBox) view;
-            HashMap<Integer,Object> hm = (HashMap<Integer,Object>)cb.getTag();
+            //CheckBox cb = (CheckBox) view;
+
+            HashMap<Integer,Object> hm = (HashMap<Integer,Object>)view.getTag();
             Integer iAnswer = (Integer)hm.get(0);
             Integer iQuestion = (Integer)hm.get(1);
-            cQuestionnaire mQ = (cQuestionnaire)hm.get(2);
-            View vParent = cb.getRootView();
+            cQuestionnaire mQ = (cQuestionnaire)hm.get(2);// this may cause laeakage - todo
+            LinearLayout llPrompt;
+            if ( !(view instanceof LinearLayout  ))
+                llPrompt = (LinearLayout)view.getParent();
+            else
+                llPrompt=(LinearLayout)view;
+            View vParent = view.getRootView();
 
             int iNoAnswers = mQ.qNoAnswers(iQuestion);
             Integer iChosen = mQ.getChosenAnswer(iQuestion);
             Log.v("HRISLOG", "OnAnswer clicked Q" + iQuestion + " A" + iAnswer);
-            if ( cb.isChecked() )
+
+            CheckBox cbTmp = (CheckBox) llPrompt.findViewById(R.id.cbAnswer);
+            if ( !(view instanceof CheckBox  ))
+                cbTmp.setChecked(!cbTmp.isChecked());
+            //TextView tbTmp = (TextView) llPrompt.findViewById(R.id.txAnswer);
+            //ImageView ivTmp = (ImageView) llPrompt.findViewById(R.id.imAnswer);
+
+            if ( cbTmp.isChecked() )
             {
                 // record change in choice
                 mQ.setChosenAnswer(iQuestion, iAnswer);
@@ -626,12 +822,13 @@ public class questionActivity extends AppCompatActivity {
                 // set the colours too for feedback
                 int iA;
                 for ( iA =1 ;iA<= iNoAnswers;iA++) {
-                    CheckBox cbTmp= (CheckBox)vParent.findViewById( 1000+(10*iQuestion) + iA);
+                    LinearLayout llP = (LinearLayout)vParent.findViewById( 1000+(10*iQuestion) + iA);
+                    cbTmp = (CheckBox) llP.findViewById(R.id.cbAnswer);
                     cbTmp.setChecked ( iA == iChosen );
                     if ( cbTmp.isChecked() )
-                        cbTmp.setBackgroundColor(Color.GREEN );
+                        llP.setBackgroundColor(Color.GREEN );
                     else
-                        cbTmp.setBackgroundColor(Color.WHITE );
+                        llP.setBackgroundColor(Color.WHITE );
                 }
             }
             else
@@ -639,7 +836,7 @@ public class questionActivity extends AppCompatActivity {
                 // de-choose
                 if ( iChosen == iAnswer) {
                     mQ.setChosenAnswer(iQuestion, -1);
-                    cb.setBackgroundColor(Color.WHITE);
+                    llPrompt.setBackgroundColor(Color.WHITE);
                 }
             }
 

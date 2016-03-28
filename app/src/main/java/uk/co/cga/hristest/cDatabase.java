@@ -287,7 +287,7 @@ public class cDatabase  extends SQLiteOpenHelper
         Boolean bHasData= false;
         if (db == null) openDataBase();
 
-        Log.v("HRISLOGdb", "check usewr data "+sUID);
+        Log.v("HRISLOGdb", "check user data "+sUID);
         try {
             Cursor cRead = db.rawQuery("SELECT * FROM " + TABLE_STAFF + " WHERE UID=" + QS(sUID)+ " LIMIT 2", null);
             if (cRead != null) {
@@ -298,11 +298,12 @@ public class cDatabase  extends SQLiteOpenHelper
         }
         catch ( Exception e)
         {
-            Log.e("HRISLOGdb","Error counting stff for user database " + e.getMessage());
+            Log.e("HRISLOGdb","Error counting staff for user database " + e.getMessage());
         }
 
         return bHasData;
     }
+
     public void ClearUserTables( String sUID )
     {
         if ( db == null ) openDataBase();;

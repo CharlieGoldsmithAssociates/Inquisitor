@@ -76,6 +76,7 @@ public class CandidateActivity extends AppCompatActivity {
 
         tvFeedback = (TextView) findViewById(R.id.tvFeedback );
 
+        ListStaff("");
     }
 
     public void CreateListenerClasses () 

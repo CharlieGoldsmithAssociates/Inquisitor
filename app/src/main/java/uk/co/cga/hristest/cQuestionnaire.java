@@ -100,7 +100,7 @@ public class cQuestionnaire {
         Log.d("HRISLOG", "Start at " + sTS );
 
         Random R = new Random();
-        for (int iQ=1; iQ < noQuestions(); iQ++)
+        for (int iQ=1; iQ <= noQuestions(); iQ++)
         {
             // number of options 
             int iOptions = Integer.parseInt(

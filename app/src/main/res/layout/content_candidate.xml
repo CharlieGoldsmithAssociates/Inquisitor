@@ -20,13 +20,6 @@
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textAppearance="?android:attr/textAppearanceLarge"
-            android:text="@string/candTop"
-            android:id="@+id/textView" />
-
         <LinearLayout
             android:orientation="horizontal"
             android:layout_width="match_parent"
@@ -55,6 +48,12 @@
                 android:layout_gravity="right"
                 android:layout_weight="1" />
         </LinearLayout>
+
+        <EditText
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/tvLocation"
+            android:hint="@string/tvLocationPrompt" />
 
         <TextView
             android:layout_width="match_parent"

@@ -48,7 +48,7 @@
     <string name='timerExpired'>00:00</string>
     <string name='endSession'>The examination is complete, Saving....</string>
     <string name='staffSelect'>Staff selected: %1$s [%2$s]</string>
-    <string name='candBottom'>Use settings to limit the list to an area. You can only see staff in areas your HRIS login gives you permission to see.</string>
+    <string name='candBottom'>Use Location limit the list to an area. You can only see staff in areas your HRIS login gives you permission to see.</string>
     <string name="title_activity_upload">Completed Questionnaires</string>
     <string name="upload_toptext">Stored Questionnaires</string>
     <string name="upload_noQ">No Stored Questionnaires</string>
@@ -64,4 +64,6 @@
     <string name="errLogin1">Cannot access internet to check login.</string>
     <string name="errLogin2">Error accessing internet to check login.</string>
     <string name="errLogin3">No reply from server, please check your settings and try again.</string>
+    <string name="tvLocationPrompt">Location</string>
+    <string name="butQuit">Quit Application</string>
 </resources>

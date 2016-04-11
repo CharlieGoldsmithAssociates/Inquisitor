@@ -173,7 +173,7 @@ public class cDatabase  extends SQLiteOpenHelper
             cvInsert.put("GEO2",aFacility[3]);
             cvInsert.put("GEO3",aFacility[4]);
             cvInsert.put("GNM1",aFacility[5]);
-            cvInsert.put("GNM2",aFacility[3]);
+            cvInsert.put("GNM2",aFacility[6]);
             cvInsert.put("GNM3",aFacility[7]);
             cvInsert.put("UID", sUID);
             if ( db.insert(TABLE_FACILITY,null,cvInsert) == -1 )

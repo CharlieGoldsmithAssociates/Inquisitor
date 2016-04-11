@@ -141,6 +141,16 @@ public class LoginActivity extends AppCompatActivity  {
             }
         });
 
+        ImageButton butQuit = (ImageButton) findViewById(R.id.butQuit);
+        butQuit.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                moveTaskToBack(true);
+                android.os.Process.killProcess(android.os.Process.myPid());
+                System.exit(1);
+            }
+        });
+
         mLoginFormView = findViewById(R.id.login_form);
         mProgressView = findViewById(R.id.login_progress);
 

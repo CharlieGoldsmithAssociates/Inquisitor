@@ -43,12 +43,14 @@ interface TaskCallbacks {
     void onCancelled();
 
     void onListComplete( ArrayList<String> aNewList );
+    void onStaffAssigned ();
 }
 
 // implements uploadActivity.TaskFragment.TaskCallbacks is self referetial
 public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
     private ArrayList<String> maQList;
     private ArrayList<Boolean> idxNoStaff;
+    private ArrayList<Boolean> idxUploaded;
     private Integer miCurrentSelectPosition;
     private String msCurrentSavedQRef;
     private ImageButton imbAddS;
@@ -68,6 +70,7 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
         miCurrentSelectPosition = -1;
         maQList = null;
         idxNoStaff = null;
+        idxUploaded = null;
         msCurrentSavedQRef = null;
 
         setContentView(R.layout.activity_upload);
@@ -197,12 +200,20 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
                 }
                 if (maQList != null && maQList.get(position) != null) {
                     msCurrentSavedQRef = maQList.get(position);
-                    fabUploadSelected.setVisibility(View.VISIBLE);
                     fabDeleteSelected.setVisibility(View.VISIBLE);
 
-
-                    if (idxNoStaff != null && !idxNoStaff.get(position))
+                    // has it been uploaded - if so don't allow upload or change staff
+                    if (idxUploaded != null && ! idxUploaded.get(position)) {
+                        fabUploadSelected.setVisibility(View.VISIBLE);
+                        // always allow change of staff ?  used to be if (idxNoStaff != null && !idxNoStaff.get(position))
                         imbAddS.setVisibility(View.VISIBLE);
+                    }
+                    else
+                    {
+                        fabUploadSelected.setVisibility(View.GONE);
+                        imbAddS.setVisibility(View.INVISIBLE);
+                    }
+
 
                 } else {
                     fabUploadSelected.setVisibility(View.GONE);
@@ -409,9 +420,13 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
             Boolean bHasStaff = false;
             String sStaff = getString(R.string.nostaff);
             ImageView iv = (ImageView) convertView.findViewById(R.id.imgStaff);
+            String sHint = safeGet(Q, cQuestionnaire.STAFFPROMPT);
             if (Q.containsKey(cQuestionnaire.STAFFID)) {
                 bHasStaff = (Q.get(cQuestionnaire.STAFFID).length() > 0);
                 sStaff = safeGet(Q, cQuestionnaire.STAFFNAME);
+                if (sHint.length() > 0) {
+                    sStaff += " {"+ sHint +"}";
+                }
                 iv.setVisibility(View.VISIBLE);
                 if ((position % 2) == 0)
                     convertView.setBackgroundColor(Color.WHITE);
@@ -419,7 +434,6 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
                     convertView.setBackgroundColor(Color.rgb(192, 192, 192));
             } else {
                 // NO Staff yet
-                String sHint = safeGet(Q, cQuestionnaire.STAFFPROMPT);
                 if (sHint.length() > 0) {
                     sStaff = sHint;
                 }
@@ -458,13 +472,16 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
                 //txtTmp.setVisibility(View.GONE);
             }
 
+            Boolean bUploaded = false;
             iv = (ImageView) convertView.findViewById(R.id.imgUL);
             if (Q.containsKey(cQuestionnaire.UPLOADED) &&
                     Q.get(cQuestionnaire.UPLOADED).length() > 1) {
                 iv.setVisibility(View.VISIBLE);
                 convertView.setBackgroundColor(Color.GRAY);
+                bUploaded=true;
             } else
                 iv.setVisibility(View.INVISIBLE);
+            idxUploaded.add(position, bUploaded);
             Log.v("HRISLOG", "show list line DONE " + position);
             Q.clear();
             return convertView;
@@ -481,44 +498,20 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
         return sTmp;
     }
 
-    public void setStaffMember(View v) {
-        String sHint = getString(R.string.setstaff);
-        // get the hint if any
-        HashMap<String, String> hm = cQuestionnaire.loadSavedQuestionnaire(msCurrentSavedQRef);
-        if (hm.containsKey(cQuestionnaire.STAFFPROMPT))
-            sHint += ". " + hm.get(cQuestionnaire.STAFFPROMPT);
+   public void setStaffMember(View v) {
 
-        Snackbar sb = Snackbar.make(v, sHint, Snackbar.LENGTH_LONG);
-        sb.setAction("Choose", new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                // get name
-                Intent it = new Intent(getApplicationContext(), CandidateActivity.class);
-                startActivityForResult(it, 0);
-            }
-        });
-        sb.show();
-        hm.clear();
+        mRetainedFragment.assignStaff(msCurrentSavedQRef, getApplicationContext());
+
+
 
     }
 
     @Override
-    public void onActivityResult(int reqCode, int resCode, Intent b) {
-        super.onActivityResult(reqCode, resCode, b);
-
-        if (resCode == Activity.RESULT_OK) {
-            Log.v("HRISLOG", "get Name returned success - set name for " + msCurrentSavedQRef);
-            // read questionnaire as hash,
-            HashMap<String, String> Q = cQuestionnaire.loadSavedQuestionnaire(msCurrentSavedQRef);
-
-            String sHRISID = cGlobal.getPref("HRISID");
-            String sCandidateName = cGlobal.getPref("CANDIDATE");
-            Q.put(cQuestionnaire.STAFFNAME, sCandidateName);
-            Q.put(cQuestionnaire.STAFFID, sHRISID);
-            cQuestionnaire.updateSavedQuestionnaire(msCurrentSavedQRef, Q);
-            RefreshQList();
-        }
+    public void onStaffAssigned() {
+        RefreshQList();
     }
+
+
 
     // persistent task fragment callback - percent
     // called within background context
@@ -564,6 +557,7 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
         if (ad == null) {
             Log.v("HRISLOG", "Create new adpater first time");
             idxNoStaff = new ArrayList<Boolean>(aNewList.size());
+            idxUploaded= new ArrayList<Boolean>(aNewList.size());
             maQList = aNewList;
             ad = new QListAdapter(getApplicationContext(), R.layout.layoutsavedq, maQList);
             lvQuestionnaires.setAdapter(ad);
@@ -572,6 +566,7 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
             ad.clear();
             maQList.clear();
             idxNoStaff = new ArrayList<Boolean>(aNewList.size());
+            idxUploaded= new ArrayList<Boolean>(aNewList.size());
             ad.addAll(aNewList);
             maQList = aNewList;
 
@@ -606,6 +601,7 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
         private UploadTask ulTask;
         private ListTask listTask;
         private Handler mFeedbackHandler;
+        private String mAssignStaffQuestionnaireRef;
 
         /**
          * Hold a reference to the parent Activity so we can report the
@@ -656,6 +652,60 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
                     return true;
                 }
             });
+        }
+
+        public void assignStaff ( String sQRef, Context ctx )
+        {
+            // get name
+            mAssignStaffQuestionnaireRef = sQRef;
+
+            String sSID = null;
+            try {
+                cGlobal.setPref("CANDIDATE","");
+                cGlobal.setPref("ASSIGNQREF",mAssignStaffQuestionnaireRef);
+                sSID = "";
+                // get the Staff ID if any
+                HashMap<String, String> hm = cQuestionnaire.loadSavedQuestionnaire(mAssignStaffQuestionnaireRef);
+                if (hm.containsKey(cQuestionnaire.STAFFID)) {
+                    sSID = hm.get(cQuestionnaire.STAFFID);
+                }
+                cGlobal.setPref("HRISID",sSID);
+            } catch (Exception e) {
+                // ignore
+            }
+
+
+            Intent it = new Intent(ctx, CandidateActivity.class);
+            startActivityForResult(it, 0);
+        }
+
+        @Override
+        public void onActivityResult(int reqCode, int resCode, Intent b) {
+            super.onActivityResult(reqCode, resCode, b);
+
+            if (resCode == Activity.RESULT_OK) {
+                mAssignStaffQuestionnaireRef =  cGlobal.getPref("ASSIGNQREF");
+                if ( mAssignStaffQuestionnaireRef.length()> 0 ) {
+                    Log.v("HRISLOG", "get Name returned success - set name for " + mAssignStaffQuestionnaireRef);
+                    // read questionnaire as hash,
+                    HashMap<String, String> Q = cQuestionnaire.loadSavedQuestionnaire(mAssignStaffQuestionnaireRef);
+
+                    String sHRISID = cGlobal.getPref("HRISID");
+                    String sCandidateName = cGlobal.getPref("CANDIDATE");
+                    if (sHRISID.length() > 0) {
+                        Q.put(cQuestionnaire.STAFFNAME, sCandidateName);
+                        Q.put(cQuestionnaire.STAFFID, sHRISID);
+                        cQuestionnaire.updateSavedQuestionnaire(mAssignStaffQuestionnaireRef, Q);
+                    }
+                }
+                cGlobal.setPref("HRISID","");
+                cGlobal.setPref("CANDIDATE","");
+                cGlobal.setPref("ASSIGNQREF","");
+                // q list may have changed
+                if (mCallbacks != null) {
+                    mCallbacks.onStaffAssigned();
+                }
+            }
         }
 
         public void StartUpload(String sQRef) {

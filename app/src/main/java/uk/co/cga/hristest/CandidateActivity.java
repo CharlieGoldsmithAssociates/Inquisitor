@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.app.SearchManager;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
@@ -32,9 +33,10 @@ public class CandidateActivity extends AppCompatActivity {
     private String[] aStaff;
     private HashMap<Integer, String> map_positionToId;
     private TextView tvName;
+    private TextView tvLoc;
     private TextView tvFeedback;
     private ListView lvStaff;
-    private FloatingActionButton fabChoose;// TODO hide until selection made
+   // private FloatingActionButton fabChoose;
     private StaffSearchTask mSrchTask = null;
     private View.OnClickListener logoutListener;
     private View.OnClickListener selectCandidateListener;
@@ -61,22 +63,36 @@ public class CandidateActivity extends AppCompatActivity {
         
         setSupportActionBar(toolbar);
 
-        //fabChoose = (FloatingActionButton) findViewById(R.id.fab);
-        //fabChoose.setOnClickListener(selectCandidateListener);
-        // gone until staff selected
-        //fabChoose.setVisibility(View.GONE);
+
+        tvFeedback = (TextView) findViewById(R.id.tvFeedback );
+        tvFeedback.setVisibility(View.GONE);
 
         tvName = (TextView) findViewById(R.id.tvName );
         tvName.addTextChangedListener(nameSearchListener);
+
+        tvLoc = (TextView) findViewById(R.id.tvLocation);
+        tvLoc.addTextChangedListener(nameSearchListener);
 
         lvStaff = (ListView) findViewById(R.id.lvStaff );
         map_positionToId = new HashMap<Integer, String>();
         //lvStaff.addHeaderView(new TextView(this,));
         lvStaff.setOnItemClickListener(staffClickListener);
 
-        tvFeedback = (TextView) findViewById(R.id.tvFeedback );
-
-        ListStaff("");
+        String sTmp = cGlobal.getPref("HRISID");
+        Boolean bListRequired=true;
+        if ( sTmp.length() > 0) {
+            tvName.setText(sTmp); // calls ListStaff via ontextchange
+            bListRequired=false;
+        }
+        sTmp = cGlobal.getPref("LASTLOCSTRING");
+        if ( sTmp.length() > 0) {
+            tvLoc.setTextColor(Color.YELLOW);
+            tvLoc.setText(sTmp); // calls ListStaff via ontextchange
+            bListRequired=false;
+        }
+        if (bListRequired){
+            ListStaff();
+        }
     }
 
     public void CreateListenerClasses () 
@@ -94,7 +110,7 @@ public class CandidateActivity extends AppCompatActivity {
                 Log.d("HRISLOG","selectCandidate button click");
                 if (msHRISID.length() > 1) {
 
-                    Intent it = new Intent();// todo make this a return value activity
+                    Intent it = new Intent();
                     // intent gets lost in the tabbed wrapper classes somewhere
                     it.putExtra("HRISID", msHRISID);
                     it.putExtra("CANDIDATE", msCandidateName);
@@ -124,12 +140,14 @@ public class CandidateActivity extends AppCompatActivity {
 
                 msHRISID = map_positionToId.get(position);
                 TextView tv = (TextView) v;
-                msCandidateName = tv.getText().toString();
+                String sTmp = tv.getText().toString();
+                String[] sLines = sTmp.split("\n");
+                msCandidateName = sLines[0];
 
-                // show the floating choose button
+
                 Log.d("HRISLOG","set "+msCandidateName );
 
-                Intent it = new Intent();// todo make this a return value activity
+                Intent it = new Intent();
                 // intent gets lost in the tabbed wrapper classes somewhere
                 it.putExtra("HRISID", msHRISID);
                 it.putExtra("CANDIDATE", msCandidateName);
@@ -153,6 +171,7 @@ public class CandidateActivity extends AppCompatActivity {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 Log.d("HRISLOG","on txt chg");
+                tvFeedback.setVisibility(View.GONE);
             }
 
             @Override
@@ -164,7 +183,7 @@ public class CandidateActivity extends AppCompatActivity {
             @Override
             public void afterTextChanged(Editable ed) {
                 Log.d("HRISLOG","after text chg");
-                ListStaff(tvName.getText().toString());
+                ListStaff();
             }
         };
 
@@ -172,15 +191,24 @@ public class CandidateActivity extends AppCompatActivity {
     }
 
 
-    private boolean ListStaff(String sSearch )
+    private boolean ListStaff()
     {
-        sSearch = sSearch.toString().replace('.', ' ');
-        sSearch = sSearch.replaceAll("[,:;]", " ");
+        String sStaff = tvName.getText().toString();
+        sStaff = sStaff.replace('.', ' ');
+        sStaff = sStaff.replaceAll("[,:;]", " ");
+
+        String sLoc = tvLoc.getText().toString();
+        sLoc = sLoc.replace('.', ' ');
+        sLoc = sLoc.replaceAll("[,:;]", " ");
+
+        // store last used location string so we can preserve it
+        // for next call which is most likely the same loc
+        cGlobal.setPref("LASTLOCSTRING",sLoc);
 
         if (mSrchTask != null) {
             return false;
         }
-        mSrchTask = new StaffSearchTask(this,sSearch);
+        mSrchTask = new StaffSearchTask(this,sStaff,sLoc);
         mSrchTask.execute((Void) null);
 
         return true;
@@ -189,12 +217,14 @@ public class CandidateActivity extends AppCompatActivity {
     public class StaffSearchTask extends AsyncTask<Void, Void, Integer>
     {
         private Context cParent;
-        private String sSearch;
+        private String sSearchStaff;
+        private String sSearchLoc;
         private String sErrorText;
 
-        StaffSearchTask( Context cP, String sSr ) {
+        StaffSearchTask( Context cP, String sStaff, String sLoc ) {
             cParent = cP;
-            sSearch = sSr;
+            sSearchStaff = sStaff;
+            sSearchLoc = sLoc;
             sErrorText="";
         }
 
@@ -203,38 +233,47 @@ public class CandidateActivity extends AppCompatActivity {
         {
             Log.v("HRISLOGbgs","Start BG Staff search");
             String sWhere = "";
-            String[] aWords = sSearch.split(" ");
+            String[] aWords = sSearchStaff.split(" ");
             String sWildcard = "";
             String sWCspace = "";
             sErrorText="";
             for (String sWord : aWords) {
-                // possible HRIS ID ? start HR
-                // HRabcNNNNNNN up to 12 in length
-                if (sWord.startsWith("HR")) {
-                    if (sWord.length() > 12) {
-                        // error
-                        sErrorText = getString(R.string.candHRIDerr);
-                        sWord=sWord.substring(0, 12);
-                    }
-
-                    sWhere += " AND ID LIKE " + cDatabase.QS(sWord + "%");
-                } else {
+                // possible HRIS ID ? start SR
+                // SRabcNNNNNNN up to 12 in length
+                if (sWord.startsWith("SR") && sWord.length() < 13 )
+                {
+                    sWhere += " AND S.ID LIKE " + cDatabase.QS(sWord + "%");
+                }
+                else
+                {
                     sWildcard += sWCspace + sWord + "%";
                     sWCspace = " ";
                 }
             }
-            if (sWildcard.length() > 0)
-                sWhere += " AND NAME LIKE " + cDatabase.QS(sWildcard);
+            if (sWildcard.length() > 1)
+                sWhere += " AND S.NAME LIKE " + cDatabase.QS(sWildcard);
+
+            if ( sSearchLoc.length() > 0 )
+            {
+                sWildcard =cDatabase.QS( sSearchLoc + "%");
+                sWhere += " AND ( "+
+                        "F.NAME LIKE " + sWildcard+
+                        "OR F.GNM1 LIKE " + sWildcard+
+                        "OR F.GNM2 LIKE " + sWildcard+
+                        "OR F.GNM3 LIKE " + sWildcard +
+                        ") ";
+            }
             Log.v("HRISLOGbgs","Search cond is "+ sWhere );
 
             // arraylist with ID and Name
             // horribly inefficient TODO Improve search efficiency
-            // todo add search / filter by geo
-            ArrayList tmpStaff = cGlobal.cdb.getArray("SELECT ID,NAME||', '||ROLE||' ['||ID||']' FROM " +
-                            cDatabase.TABLE_STAFF + " WHERE UID=" +
-                            cDatabase.QS(cGlobal.curUID()) +
+            String sQUID =cDatabase.QS(cGlobal.curUID());
+            ArrayList tmpStaff = cGlobal.cdb.getArray("SELECT S.ID,S.NAME||', '||S.ROLE||' ['||S.ID||']',F.NAME,F.GNM1,F.GNM2,F.GNM3 FROM " +
+                            cDatabase.TABLE_STAFF + " AS S "+
+                            " INNER JOIN "+ cDatabase.TABLE_FACILITY + " AS F ON S.FAC = F.ID "+
+                            " WHERE S.UID=" + sQUID + " AND F.UID=" + sQUID +
                             sWhere +
-                            "ORDER BY NAME LIMIT "+ MAXSTAFFROWS );
+                            "ORDER BY S.NAME LIMIT "+ MAXSTAFFROWS );
             if (tmpStaff.isEmpty()) {
                 sErrorText = getString(R.string.candNotFound);
                 return 0;
@@ -250,7 +289,11 @@ public class CandidateActivity extends AppCompatActivity {
                 String[] aFlds = sRow.split("\t");
                 // update the map position too
                 map_positionToId.put(iPos, aFlds[0]);
-                aStaff[iPos] = aFlds[1];
+                aStaff[iPos] = aFlds[1] +
+                        "\n" + aFlds[2] +
+                        ", " + aFlds[3] +
+                        ", " + aFlds[4] +
+                        ", " + aFlds[5] ;
                 iPos++;
             }
             sErrorText = "";
@@ -264,6 +307,7 @@ public class CandidateActivity extends AppCompatActivity {
 
             Log.v("HRISLOGbgs", "Search done " + iMatchCount + ":" + sErrorText);
             //tvName.setError(sErrorText);
+            tvFeedback.setVisibility(View.VISIBLE);
             if ( iMatchCount == 0 )
             {
                 tvFeedback.setText(sErrorText);

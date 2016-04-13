@@ -68,31 +68,24 @@ public class CandidateActivity extends AppCompatActivity {
         tvFeedback.setVisibility(View.GONE);
 
         tvName = (TextView) findViewById(R.id.tvName );
-        tvName.addTextChangedListener(nameSearchListener);
-
         tvLoc = (TextView) findViewById(R.id.tvLocation);
-        tvLoc.addTextChangedListener(nameSearchListener);
-
         lvStaff = (ListView) findViewById(R.id.lvStaff );
         map_positionToId = new HashMap<Integer, String>();
         //lvStaff.addHeaderView(new TextView(this,));
-        lvStaff.setOnItemClickListener(staffClickListener);
 
         String sTmp = cGlobal.getPref("HRISID");
-        Boolean bListRequired=true;
         if ( sTmp.length() > 0) {
             tvName.setText(sTmp); // calls ListStaff via ontextchange
-            bListRequired=false;
         }
         sTmp = cGlobal.getPref("LASTLOCSTRING");
         if ( sTmp.length() > 0) {
             tvLoc.setTextColor(Color.YELLOW);
             tvLoc.setText(sTmp); // calls ListStaff via ontextchange
-            bListRequired=false;
         }
-        if (bListRequired){
-            ListStaff();
-        }
+        tvName.addTextChangedListener(nameSearchListener);
+        tvLoc.addTextChangedListener(nameSearchListener);
+        lvStaff.setOnItemClickListener(staffClickListener);
+        ListStaff();
     }
 
     public void CreateListenerClasses () 
@@ -193,6 +186,8 @@ public class CandidateActivity extends AppCompatActivity {
 
     private boolean ListStaff()
     {
+        if ( tvName == null || tvLoc == null || mSrchTask != null ) return false;
+
         String sStaff = tvName.getText().toString();
         sStaff = sStaff.replace('.', ' ');
         sStaff = sStaff.replaceAll("[,:;]", " ");
@@ -231,72 +226,84 @@ public class CandidateActivity extends AppCompatActivity {
         @Override
         protected Integer doInBackground(Void... params)
         {
-            Log.v("HRISLOGbgs","Start BG Staff search");
-            String sWhere = "";
-            String[] aWords = sSearchStaff.split(" ");
-            String sWildcard = "";
-            String sWCspace = "";
-            sErrorText="";
-            for (String sWord : aWords) {
-                // possible HRIS ID ? start SR
-                // SRabcNNNNNNN up to 12 in length
-                if (sWord.startsWith("SR") && sWord.length() < 13 )
-                {
-                    sWhere += " AND S.ID LIKE " + cDatabase.QS(sWord + "%");
-                }
-                else
-                {
-                    sWildcard += sWCspace + sWord + "%";
-                    sWCspace = " ";
-                }
-            }
-            if (sWildcard.length() > 1)
-                sWhere += " AND S.NAME LIKE " + cDatabase.QS(sWildcard);
-
-            if ( sSearchLoc.length() > 0 )
-            {
-                sWildcard =cDatabase.QS( sSearchLoc + "%");
-                sWhere += " AND ( "+
-                        "F.NAME LIKE " + sWildcard+
-                        "OR F.GNM1 LIKE " + sWildcard+
-                        "OR F.GNM2 LIKE " + sWildcard+
-                        "OR F.GNM3 LIKE " + sWildcard +
-                        ") ";
-            }
-            Log.v("HRISLOGbgs","Search cond is "+ sWhere );
-
-            // arraylist with ID and Name
-            // horribly inefficient TODO Improve search efficiency
-            String sQUID =cDatabase.QS(cGlobal.curUID());
-            ArrayList tmpStaff = cGlobal.cdb.getArray("SELECT S.ID,S.NAME||', '||S.ROLE||' ['||S.ID||']',F.NAME,F.GNM1,F.GNM2,F.GNM3 FROM " +
-                            cDatabase.TABLE_STAFF + " AS S "+
-                            " INNER JOIN "+ cDatabase.TABLE_FACILITY + " AS F ON S.FAC = F.ID "+
-                            " WHERE S.UID=" + sQUID + " AND F.UID=" + sQUID +
-                            sWhere +
-                            "ORDER BY S.NAME LIMIT "+ MAXSTAFFROWS );
-            if (tmpStaff.isEmpty()) {
-                sErrorText = getString(R.string.candNotFound);
-                return 0;
-            }
-
             int iPos = 0;
-            // rebuild aStaff
-            Log.v("HRISLOGbgs","Build array and pos map "+ tmpStaff.size() );
-            aStaff = new String[tmpStaff.size()];
-            map_positionToId.clear();
-            for (Object oRow : tmpStaff) {
-                String sRow = (String) oRow;
-                String[] aFlds = sRow.split("\t");
-                // update the map position too
-                map_positionToId.put(iPos, aFlds[0]);
-                aStaff[iPos] = aFlds[1] +
-                        "\n" + aFlds[2] +
-                        ", " + aFlds[3] +
-                        ", " + aFlds[4] +
-                        ", " + aFlds[5] ;
-                iPos++;
+
+            Log.v("HRISLOGbgs","Start BG Staff search");
+            try {
+                String sWhere = "";
+                String[] aWords = sSearchStaff.split(" ");
+                String sWildcard = "";
+                String sWCspace = "";
+
+                Boolean bIsID=false;
+
+                sErrorText="";
+                for (String sWord : aWords) {
+                    // possible HRIS ID ? start SR
+                    // SRabcNNNNNNN up to 12 in length
+                    if (sWord.startsWith("SR") && sWord.length() < 13 )
+                    {
+
+                        sWhere += " AND S.ID LIKE " + cDatabase.QS(sWord + "%");
+                        bIsID=(sWord.length()==12);
+                    }
+                    else
+                    {
+                        sWildcard += sWCspace + sWord + "%";
+                        sWCspace = " ";
+                        bIsID=false;
+                    }
+                }
+                if (sWildcard.length() > 1)
+                    sWhere += " AND S.NAME LIKE " + cDatabase.QS(sWildcard);
+
+                if ( sSearchLoc.length() > 0 && ! bIsID )
+                {
+                    sWildcard =cDatabase.QS( sSearchLoc + "%");
+                    sWhere += " AND ( "+
+                            "F.NAME LIKE " + sWildcard+
+                            "OR F.GNM1 LIKE " + sWildcard+
+                            "OR F.GNM2 LIKE " + sWildcard+
+                            "OR F.GNM3 LIKE " + sWildcard +
+                            ") ";
+                }
+                Log.v("HRISLOGbgs","Search cond is "+ sWhere );
+
+                // arraylist with ID and Name
+                String sQUID =cDatabase.QS(cGlobal.curUID());
+                ArrayList tmpStaff = cGlobal.cdb.getArray("SELECT S.ID,S.NAME||', '||S.ROLE||' ['||S.ID||']',F.NAME,F.GNM1,F.GNM2,F.GNM3 FROM " +
+                                cDatabase.TABLE_STAFF + " AS S "+
+                                " INNER JOIN "+ cDatabase.TABLE_FACILITY + " AS F ON S.FAC = F.ID "+
+                                " WHERE S.UID=" + sQUID + " AND F.UID=" + sQUID +
+                                sWhere +
+                                "ORDER BY S.NAME LIMIT "+ MAXSTAFFROWS );
+                if (tmpStaff.isEmpty()) {
+                    sErrorText = getString(R.string.candNotFound);
+                    return 0;
+                }
+
+                // rebuild aStaff
+                Log.v("HRISLOGbgs","Build array and pos map "+ tmpStaff.size() );
+                aStaff = new String[tmpStaff.size()];
+                map_positionToId.clear();
+                for (Object oRow : tmpStaff) {
+                    String sRow = (String) oRow;
+                    String[] aFlds = sRow.split("\t");
+                    // update the map position too
+                    map_positionToId.put(iPos, aFlds[0]);
+                    aStaff[iPos] = aFlds[1] +
+                            "\n" + aFlds[2] +
+                            ", " + aFlds[3] +
+                            ", " + aFlds[4] +
+                            ", " + aFlds[5] ;
+                    iPos++;
+                }
+                sErrorText = "";
+                Log.v("HRISLOGbgs","Build array and pos map Done " );
+            } catch (Exception e) {
+                sErrorText = "An error occurred during search." + e.getMessage();
+
             }
-            sErrorText = "";
             return iPos;
         }// end do in bg
 

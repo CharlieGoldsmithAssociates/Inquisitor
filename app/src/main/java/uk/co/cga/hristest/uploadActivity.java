@@ -43,7 +43,7 @@ interface TaskCallbacks {
     void onCancelled();
 
     void onListComplete( ArrayList<String> aNewList );
-    void onStaffAssigned ();
+    void onStaffAssigned ( String sErr );
 }
 
 // implements uploadActivity.TaskFragment.TaskCallbacks is self referetial
@@ -175,8 +175,8 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
             public void onClick(View view) {
                 // retrospectively add staff
                 Log.d("HRISLOG", "Add staff id for questionnaire");
-                if (miCurrentSelectPosition >= 0) {
-                    setStaffMember(view);
+                if (msCurrentSavedQRef != null && msCurrentSavedQRef.length() > 0) {
+                    setStaffMember();
                     RefreshQList();
                 }
             }
@@ -280,7 +280,7 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
             if (pd == null)
                 pd = ProgressDialog.show(this, "Working..", getString(R.string.wait1), true, false);
 
-            mRetainedFragment.onAttach(this); // might be redundant
+            mRetainedFragment.onAttach(getApplicationContext()); // might be redundant
             if ( mRetainedFragment.listTask == null && mRetainedFragment.ulTask == null)
                 mRetainedFragment.listAll();
         }
@@ -310,6 +310,7 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
             ListView lvQuestionnaires = (ListView) findViewById(R.id.lvQuestionnaires);
             lvQuestionnaires.setVisibility(View.INVISIBLE);
             pbProgBar.setVisibility(View.VISIBLE);
+            tvStatus.setVisibility(View.VISIBLE);
             tvStatus.setText("Loading list ...");
 
             // Show the ProgressDialog on this thread
@@ -327,6 +328,7 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
         } catch (Exception e) {
             Log.e("HRISLOG", "error refresh list " + e.getMessage());
             e.printStackTrace();
+            tvStatus.setText(e.getMessage());
         }
 
     }
@@ -390,101 +392,109 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-
             Log.v("HRISLOG", "show list line " + position);
-           /* create a new view of my layout and inflate it in the row */
+            /* create a new view of my layout and inflate it in the row */
             convertView = (LinearLayout) inflater.inflate(resource, null);
             LinearLayout llT = (LinearLayout) convertView.findViewById(R.id.llText);
 
-            String qRef = (String) getItem(position);
-            convertView.setTag(qRef);
-            if (qRef == null)
-                return convertView;// data set changing behind us
+            try {
 
-            if (position == miCurrentSelectPosition) {
-                // adding a margin on the text layout shows dark background of base view - ie selected bar/border
-                convertView.setPadding(16, 0, 0, 0);
-            } else {
-                convertView.setPadding(4, 0, 0, 0);
-            }
+                String qRef = (String) getItem(position);
+                convertView.setTag(qRef);
+                if (qRef == null)
+                    return convertView;// data set changing behind us
 
-            HashMap<String, String> Q = cQuestionnaire.loadSavedQuestionnaire(qRef);// load from saved store
+                if (position == miCurrentSelectPosition) {
+                    // adding a margin on the text layout shows dark background of base view - ie selected bar/border
+                    convertView.setPadding(16, 0, 0, 0);
+                } else {
+                    convertView.setPadding(4, 0, 0, 0);
+                }
+
+                HashMap<String, String> Q = cQuestionnaire.loadSavedQuestionnaire(qRef);// load from saved store
             /* null after delete function */
-            if (Q == null) {
+                if (Q == null) {
+                    TextView txtTmp = (TextView) convertView.findViewById(R.id.qTitle);
+                    txtTmp.setText("Questionnaire deleted");
+                    convertView.setBackgroundColor(Color.rgb(192, 192, 192));
+                    return convertView;// data set changing behind us
+                }
+
+                Boolean bHasStaff = false;
+                String sStaff = getString(R.string.nostaff);
+                ImageView iv = (ImageView) convertView.findViewById(R.id.imgStaff);
+                String sHint = safeGet(Q, cQuestionnaire.STAFFPROMPT);
+                if (Q.containsKey(cQuestionnaire.STAFFID)) {
+                    bHasStaff = (Q.get(cQuestionnaire.STAFFID).length() > 0);
+                    sStaff = safeGet(Q, cQuestionnaire.STAFFNAME);
+                    if (sHint.length() > 0) {
+                        sStaff += " {"+ sHint +"}";
+                    }
+                    iv.setVisibility(View.VISIBLE);
+                    if ((position % 2) == 0)
+                        convertView.setBackgroundColor(Color.WHITE);
+                    else
+                        convertView.setBackgroundColor(Color.rgb(192, 192, 192));
+                } else {
+                    // NO Staff yet
+                    if (sHint.length() > 0) {
+                        sStaff = sHint;
+                    }
+                    iv.setVisibility(View.INVISIBLE);
+                    convertView.setBackgroundColor(Color.rgb(255, 192, 192));
+                }
+
+                idxNoStaff.add(position, bHasStaff);
+
                 TextView txtTmp = (TextView) convertView.findViewById(R.id.qTitle);
-                txtTmp.setText("Questionnaire deleted");
+                String sTitle = safeGet(Q, cQuestionnaire.TITLE);
+                String sTmp = sTitle + ":" + sStaff;
+                txtTmp.setText(sTmp);
+
+                String sDescription = safeGet(Q, cQuestionnaire.SUMMARY);
+                String[] aDescLines = sDescription.split("~~");
+                if (aDescLines.length > 1) {
+                    txtTmp = (TextView) convertView.findViewById(R.id.qDescription);
+                    sTmp = aDescLines[0];
+                    if (sTmp == null || sTmp.length() == 0) sTmp = "Error no title for q ref:" + qRef;
+                    txtTmp.setText(sTmp);
+
+                    txtTmp = (TextView) convertView.findViewById(R.id.qDescription);
+                    sTmp = "";
+                    String sNewLine = "";
+                    for (Integer i = 1; i < aDescLines.length - 1; i++) {
+                        sTmp += sNewLine + aDescLines[i];
+                        sNewLine = "\n";
+                    }
+                    txtTmp.setText(sTmp);
+
+                    // store the reference for this line for each of processing later
+                    txtTmp = (TextView) convertView.findViewById(R.id.tvReference);
+                    int iLast = aDescLines.length - 1;
+                    txtTmp.setText(aDescLines[iLast]);
+                    //txtTmp.setVisibility(View.GONE);
+                }
+
+                Boolean bUploaded = false;
+                iv = (ImageView) convertView.findViewById(R.id.imgUL);
+                if (Q.containsKey(cQuestionnaire.UPLOADED) &&
+                        Q.get(cQuestionnaire.UPLOADED).length() > 1) {
+                    iv.setVisibility(View.VISIBLE);
+                    convertView.setBackgroundColor(Color.GRAY);
+                    bUploaded=true;
+                } else
+                    iv.setVisibility(View.INVISIBLE);
+                idxUploaded.add(position, bUploaded);
+                Log.v("HRISLOG", "show list line DONE " + position);
+                Q.clear();
+
+                return convertView;
+            } catch (Exception e) {
+                TextView txtTmp = (TextView) convertView.findViewById(R.id.qTitle);
+                txtTmp.setText("Error displaying " + e.getMessage());
                 convertView.setBackgroundColor(Color.rgb(192, 192, 192));
                 return convertView;// data set changing behind us
             }
-
-            Boolean bHasStaff = false;
-            String sStaff = getString(R.string.nostaff);
-            ImageView iv = (ImageView) convertView.findViewById(R.id.imgStaff);
-            String sHint = safeGet(Q, cQuestionnaire.STAFFPROMPT);
-            if (Q.containsKey(cQuestionnaire.STAFFID)) {
-                bHasStaff = (Q.get(cQuestionnaire.STAFFID).length() > 0);
-                sStaff = safeGet(Q, cQuestionnaire.STAFFNAME);
-                if (sHint.length() > 0) {
-                    sStaff += " {"+ sHint +"}";
-                }
-                iv.setVisibility(View.VISIBLE);
-                if ((position % 2) == 0)
-                    convertView.setBackgroundColor(Color.WHITE);
-                else
-                    convertView.setBackgroundColor(Color.rgb(192, 192, 192));
-            } else {
-                // NO Staff yet
-                if (sHint.length() > 0) {
-                    sStaff = sHint;
-                }
-                iv.setVisibility(View.INVISIBLE);
-                convertView.setBackgroundColor(Color.rgb(255, 192, 192));
-            }
-
-            idxNoStaff.add(position, bHasStaff);
-
-            TextView txtTmp = (TextView) convertView.findViewById(R.id.qTitle);
-            String sTitle = safeGet(Q, cQuestionnaire.TITLE);
-            String sTmp = sTitle + ":" + sStaff;
-            txtTmp.setText(sTmp);
-
-            String sDescription = safeGet(Q, cQuestionnaire.SUMMARY);
-            String[] aDescLines = sDescription.split("~~");
-            if (aDescLines.length > 1) {
-                txtTmp = (TextView) convertView.findViewById(R.id.qDescription);
-                sTmp = aDescLines[0];
-                if (sTmp == null || sTmp.length() == 0) sTmp = "Error no title for q ref:" + qRef;
-                txtTmp.setText(sTmp);
-
-                txtTmp = (TextView) convertView.findViewById(R.id.qDescription);
-                sTmp = "";
-                String sNewLine = "";
-                for (Integer i = 1; i < aDescLines.length - 1; i++) {
-                    sTmp += sNewLine + aDescLines[i];
-                    sNewLine = "\n";
-                }
-                txtTmp.setText(sTmp);
-
-                // store the reference for this line for each of processing later
-                txtTmp = (TextView) convertView.findViewById(R.id.tvReference);
-                int iLast = aDescLines.length - 1;
-                txtTmp.setText(aDescLines[iLast]);
-                //txtTmp.setVisibility(View.GONE);
-            }
-
-            Boolean bUploaded = false;
-            iv = (ImageView) convertView.findViewById(R.id.imgUL);
-            if (Q.containsKey(cQuestionnaire.UPLOADED) &&
-                    Q.get(cQuestionnaire.UPLOADED).length() > 1) {
-                iv.setVisibility(View.VISIBLE);
-                convertView.setBackgroundColor(Color.GRAY);
-                bUploaded=true;
-            } else
-                iv.setVisibility(View.INVISIBLE);
-            idxUploaded.add(position, bUploaded);
-            Log.v("HRISLOG", "show list line DONE " + position);
-            Q.clear();
-            return convertView;
         }
     }
 
@@ -498,17 +508,18 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
         return sTmp;
     }
 
-   public void setStaffMember(View v) {
+   public void setStaffMember() {
 
         mRetainedFragment.assignStaff(msCurrentSavedQRef, getApplicationContext());
-
-
 
     }
 
     @Override
-    public void onStaffAssigned() {
-        RefreshQList();
+    public void onStaffAssigned(String sErr) {
+        if ( tvStatus!= null && sErr.length()>0 )
+            tvStatus.setText(sErr);
+        else
+            RefreshQList(); // call on success
     }
 
 
@@ -567,8 +578,9 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
             maQList.clear();
             idxNoStaff = new ArrayList<Boolean>(aNewList.size());
             idxUploaded= new ArrayList<Boolean>(aNewList.size());
-            ad.addAll(aNewList);
             maQList = aNewList;
+            ad.addAll(aNewList);
+
 
             ad.notifyDataSetChanged();
         }
@@ -610,11 +622,20 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
          * each configuration change.
          */
         @Override
-        public void onAttach(Activity activity) {
-            super.onAttach(activity);
+        public void onAttach(Context context) {
+            super.onAttach(context);
             Log.v("HRISLOG", "retained frag attach");
+            Activity a;
 
-            mCallbacks = (TaskCallbacks) activity;
+            if (context instanceof Activity){
+                a=(Activity) context;
+                mCallbacks = (TaskCallbacks) a;
+            }
+            else
+            {
+                Log.e("HRISLOG", "retained frag attach: Failed not an activity");
+            }
+
         }
 
         /**
@@ -670,13 +691,23 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
                     sSID = hm.get(cQuestionnaire.STAFFID);
                 }
                 cGlobal.setPref("HRISID",sSID);
+
+                Intent it = new Intent(ctx, CandidateActivity.class);
+                startActivityForResult(it, 0);
+
             } catch (Exception e) {
                 // ignore
+                cGlobal.setPref("HRISID","");
+                cGlobal.setPref("CANDIDATE","");
+                cGlobal.setPref("ASSIGNQREF","");
+                // q list may have changed
+                if (mCallbacks != null) {
+                    mCallbacks.onStaffAssigned("Error starting " + e.getMessage() );
+                }
             }
 
 
-            Intent it = new Intent(ctx, CandidateActivity.class);
-            startActivityForResult(it, 0);
+
         }
 
         @Override
@@ -703,7 +734,7 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
                 cGlobal.setPref("ASSIGNQREF","");
                 // q list may have changed
                 if (mCallbacks != null) {
-                    mCallbacks.onStaffAssigned();
+                    mCallbacks.onStaffAssigned("");
                 }
             }
         }
@@ -720,6 +751,11 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
         public void listAll() {
             // Create and execute the background task.
             Log.v("HRISLOG", "retained frag start list");
+            if ( listTask != null )
+            {
+                Log.e("HRISLOG", "Listall already running");
+                return;
+            }
             listTask = new ListTask();
             listTask.execute();
             // calls perent (whichever the current one is) onlistcomplete callback

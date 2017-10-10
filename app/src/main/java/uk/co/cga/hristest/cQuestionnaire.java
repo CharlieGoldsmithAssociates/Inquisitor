@@ -3,12 +3,19 @@ package uk.co.cga.hristest;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.Environment;
+import android.provider.Settings;
+import android.provider.Settings.Secure;
 import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -461,7 +468,7 @@ public class cQuestionnaire {
         File[] fList = fSpec.listFiles();
         int iCount=0;
 
-        if ( uiProgress != null )
+        if ( uiProgress != null &&  fList != null )
         {
             Log.v("HRISLOG", "List saved questionnaires : init status");
 
@@ -471,47 +478,44 @@ public class cQuestionnaire {
             Message msg = new Message();
         }
 
+        if ( fList != null ) {
+            for (File f : fList) {
+                iCount++;
+                if (uiProgress != null) uiProgress.sendEmptyMessage(iCount);
 
-        for ( File f : fList  )
-        {
-            iCount++;
-            if ( uiProgress != null ) uiProgress.sendEmptyMessage(iCount);
-
-            if ( f.isFile() )
-            {
-                String sFile = f.getName();
-                if ( sFile.endsWith(".hrisq")) {
-                    Boolean bAdd = true;
-                    String sSavedQRef = sFile.substring(0, sFile.length() - 6);
-                    if ( iUploadedMode>0 )
-                    {
-                        // more work, read file and check if uploaded time is set
-                        Log.v("HRISLOG", "List saved questionnaires : loading "+sSavedQRef);
-                        HashMap<String,String> hm = loadSavedQuestionnaire(sSavedQRef);
-                        if (hm != null )
-                        {
-                            if ( hm.containsKey(UPLOADED) )
-                            {
-                                // uploaded - is that what we want ?
-                                if ( iUploadedMode == 1)
-                                    bAdd = true;
-                                else
-                                    bAdd=false;
+                if (f.isFile()) {
+                    String sFile = f.getName();
+                    if (sFile.endsWith(".hrisq")) {
+                        try {
+                            Boolean bAdd = true;
+                            String sSavedQRef = sFile.substring(0, sFile.length() - 6);
+                            if (iUploadedMode > 0) {
+                                // more work, read file and check if uploaded time is set
+                                Log.v("HRISLOG", "List saved questionnaires : loading " + sSavedQRef);
+                                HashMap<String, String> hm = loadSavedQuestionnaire(sSavedQRef);
+                                if (hm != null) {
+                                    if (hm.containsKey(UPLOADED)) {
+                                        // uploaded - is that what we want ?
+                                        if (iUploadedMode == 1)
+                                            bAdd = true;
+                                        else
+                                            bAdd = false;
+                                    } else {
+                                        // not uploaded is that what we want
+                                        if (iUploadedMode == 0)
+                                            bAdd = true;
+                                        else
+                                            bAdd = false;
+                                    }
+                                } else
+                                    bAdd = false;// err
                             }
-                            else
-                            {
-                                // not uploaded is that what we want
-                                if ( iUploadedMode == 0)
-                                    bAdd = true;
-                                else
-                                    bAdd=false;
-                            }
+                            if (bAdd && iCount < 25)
+                                aReply.add(sSavedQRef);
+                        } catch ( Exception e) {
+                            Log.v("HRISLOG", "Error loading questionnaire : " + sFile );
                         }
-                        else
-                            bAdd= false;// err
                     }
-                    if ( bAdd )
-                        aReply.add(sSavedQRef);
                 }
             }
         }
@@ -558,12 +562,12 @@ public class cQuestionnaire {
         int iPos = 0;
         int iNextPos;
         // last index of _ in name
-        while( (iNextPos= sSavedQRef.indexOf('_',iPos+1 ) )>iPos ) iPos = iNextPos;
-        String sTemplate= sSavedQRef.substring(0,iPos).toUpperCase();
-
-        // load the core details
-        String sFile = qQuestionnaireFileName(sSavedQRef);
         try {
+            while( (iNextPos= sSavedQRef.indexOf('_',iPos+1 ) )>iPos ) iPos = iNextPos;
+            String sTemplate= sSavedQRef.substring(0,iPos).toUpperCase();
+
+            // load the core details
+            String sFile = qQuestionnaireFileName(sSavedQRef);
 
             File fTemp = new File(sFile);
             if ( ! fTemp.exists() )
@@ -601,7 +605,7 @@ public class cQuestionnaire {
         }
         catch (Exception ex )
         {
-            Log.e("HRISLOG","Cannot open questionnaire file " + sFile);
+            Log.e("HRISLOG","Cannot open questionnaire file " + sSavedQRef + ":"+ ex.getMessage());
         }
 
         return hReply;
@@ -866,6 +870,150 @@ public class cQuestionnaire {
         Message msg =new Message();
         msg.setData(b);
         uiProgress.sendMessage( msg );
+    }
+
+    static public String publishAllQuestionnaires (String sUID, Handler uiProgress) {
+        String sReport= "Publishing Questionnaires: starting\n ";
+        String sPath =PATH + "save/";
+        File fSpec = new File(sPath);
+        File[] fList = fSpec.listFiles();
+        Log.v("HRISLOG", "Copy all questionnaires to public space: from "+sPath);
+        if ( fList != null )
+            sReport += String.format("Found %d files in path ", fList.length) + ": "+sPath + "\n";
+        else
+            sReport += "Found NO files in path : "+sPath + "\n";
+
+        int iCount=0;
+        int iNotFile=0;
+        int iNotQ=0;
+        int iCopied=0;
+        int iUnchanged=0;
+
+         if ( uiProgress != null && fList != null  )
+        {
+            Log.v("HRISLOG", "Publish saved questionnaires : init status");
+
+            Bundle b = new Bundle();
+            b.putInt("MAX", fList.length );
+            b.putInt("PROG", 0 );
+            Message msg = new Message();
+        }
+
+        if ( fList != null ) {
+            String sExtern = cGlobal.main_Context.getExternalFilesDir(null).getPath();
+
+            if ( !cUtils.isExternalStorageWritable() )
+            {
+                sReport += "External storage is not writable:"+ sExtern+"\n";
+            }
+            else {
+                sReport += "External storage is writable:"+ sExtern+"\n";
+                iNotFile = 0;
+                iNotQ = 0;
+                for (File f : fList) {
+                    iCount++;
+                    if (uiProgress != null) uiProgress.sendEmptyMessage(iCount);
+
+                    if (f.isFile()) {
+                        String sFile = f.getName();
+
+                        Log.v("HRISLOG", "Check file " + sFile);
+
+                        if (sFile.endsWith(".hrisq")) {
+                            //https://developer.android.com/reference/android/content/Context.html#getExternalFilesDir(java.lang.String)
+                            File pubFile = new File(cGlobal.main_Context.getExternalFilesDir(null), sFile);
+                            Log.v("HRISLOG", "Check ext file  " + pubFile.getAbsolutePath());
+                            if (pubFile.isFile() && pubFile.length() == f.length()) {
+                                // ok it's the same..
+                                iUnchanged++;
+                                Log.v("HRISLOG", "Unchanged " + sFile);
+                                sReport += sFile + ": Unchanged \n";
+                            } else {
+
+                                try {
+                                    InputStream in = new FileInputStream(f);
+
+                                    try {
+                                        OutputStream out = new FileOutputStream(pubFile);
+                                        try {
+                                            // Transfer bytes from in to out
+                                            byte[] buf = new byte[1024];
+                                            int len;
+                                            while ((len = in.read(buf)) > 0) {
+                                                out.write(buf, 0, len);
+                                            }
+
+                                            sReport += sFile + ": Copied \n";
+                                            iCopied++;
+                                            Log.v("HRISLOG", "Copied " + sFile);
+                                        } catch (Exception e) {
+                                            statusReport(uiProgress, "Error publishing file :" + sFile);
+                                            Log.v("HRISLOG", "Error writing dest file " + pubFile.getName() + ":" + e.getMessage());
+                                            sReport += sFile + ": Error writing :" + e.getMessage()+"\n";
+
+                                        } finally {
+                                            out.close();
+                                        }
+                                    } catch (Exception e) {
+                                        statusReport(uiProgress, "Error publishing file :" + sFile);
+                                        Log.v("HRISLOG", "Error opening dest file " + pubFile.getName() + ":" + e.getMessage());
+                                        sReport += sFile + ": Error writing output "+ pubFile.getName()+":" + e.getMessage()+"\n";
+                                    } finally {
+                                        in.close();
+
+                                    }
+
+                                } catch (Exception e) {
+                                    statusReport(uiProgress, "Error publishing file :" + sFile);
+                                    Log.v("HRISLOG", "Error opening src file " + sFile + ":" + e.getMessage());
+                                    sReport += sFile + ": Error opening source :" + e.getMessage() +"\n";
+
+                                }
+                            }
+                        } else {
+                            iNotQ++;
+                            Log.v("HRISLOG", "Not hrisq " + sFile);
+                            sReport += sFile + ": ignored";
+                        }
+                    } else {
+                        iNotFile++;
+                        Log.v("HRISLOG", "Not file ");
+                        sReport += f.getName() + ": not a file";
+                    }
+                }
+
+                String rpt=String.format("%d questionnaires published,%d unchanged, %d non files, %d non questionnaires found",
+                        iCopied, iUnchanged, iNotFile, iNotQ);
+                statusReport(uiProgress, rpt);
+                sReport += rpt;
+                Log.v("HRISLOG", rpt);
+            }
+        }
+        else
+        {
+            statusReport(uiProgress,"No files found in storage area.:"+sPath);
+            Log.i("HRISLOG","No files found in storage area.:"+sPath);
+            iCopied=-1;
+        }
+
+        // pause so we can see screen status if not debugging
+        try {
+            if (cUtils.isNetworkAvailable())
+            {
+                String android_id = Settings.Secure.getString(cGlobal.main_Context.getContentResolver(),
+                        Secure.ANDROID_ID);
+                HashMap<String, String> hm = new HashMap<String, String>();
+                hm.put("REPORT", sReport);
+                hm.put("UID", sUID);
+                sReport += cUtils.postAPIForm("SAVEREP", null, hm);
+            }
+            //Thread.sleep(2000);
+        } catch (Exception e) {
+            Log.i("HRISLOG","pause after publish exception "+e.getMessage());
+
+        }
+
+        return sReport;
     }
 
     static public int getAllQuestionnaires (String sUID, Handler uiProgress)

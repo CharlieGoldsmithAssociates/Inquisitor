@@ -61,6 +61,7 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
     FloatingActionButton fabUploadSelected;
     private ProgressDialog pd = null;
     private TaskFragment mRetainedFragment = null;
+    private boolean bUploadForceAll = false;
     final String retainedFragmentTag = "RetainedFragmentTag";
 
     @Override
@@ -832,7 +833,10 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
                     if (hm.containsKey(cQuestionnaire.STAFFID))
                         sStaffChk = hm.get(cQuestionnaire.STAFFID);
 
-                    if (sStaffChk.length() > 0) {
+                    // HT Oct 17 - add force mode to send all questionnairs , with or without staff
+                    String sTmp = cGlobal.getPref("FORCEUPLOADALL","");
+
+                    if (sStaffChk.length() > 0 || sTmp.length()>0 ) {
                         // set uploaded in memory ready for upload..
                         hm.put(cQuestionnaire.UPLOADED, cUtils.getTimestamp());
                         hm.put("S", cGlobal.sessKey());

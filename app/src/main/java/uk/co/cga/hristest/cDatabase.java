@@ -156,6 +156,26 @@ public class cDatabase  extends SQLiteOpenHelper
         return aReply;
     }
 
+    public boolean startTransaction()
+    {
+        if ( db == null ) openDataBase();;
+
+        db.beginTransaction();
+        return true;
+    }
+    public void endTransaction()
+    {
+        if ( db.inTransaction() ) {
+            db.setTransactionSuccessful();
+            db.endTransaction();
+        }
+    }
+    public void abandonTransaction()
+    {
+        if ( db.inTransaction() ) {
+            db.endTransaction();
+        }
+    }
 
     public boolean  AddFacilityLine ( String sFacilityString, String sUID )
     {

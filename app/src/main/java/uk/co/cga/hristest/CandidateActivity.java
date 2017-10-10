@@ -194,7 +194,7 @@ public class CandidateActivity extends AppCompatActivity {
 
         String sLoc = tvLoc.getText().toString();
         sLoc = sLoc.replace('.', ' ');
-        sLoc = sLoc.replaceAll("[,:;]", " ");
+        sLoc = sLoc.replaceAll("[^A-Za-z0-9]", "");
 
         // store last used location string so we can preserve it
         // for next call which is most likely the same loc
@@ -231,7 +231,9 @@ public class CandidateActivity extends AppCompatActivity {
             Log.v("HRISLOGbgs","Start BG Staff search");
             try {
                 String sWhere = "";
-                String[] aWords = sSearchStaff.split(" ");
+                String sSearch = sSearchStaff;
+                sSearch = sSearch.replaceAll("[\\W]|_", "");
+                String[] aWords = sSearch.split(" ");
                 String sWildcard = "";
                 String sWCspace = "";
 
@@ -247,7 +249,7 @@ public class CandidateActivity extends AppCompatActivity {
                         sWhere += " AND S.ID LIKE " + cDatabase.QS(sWord + "%");
                         bIsID=(sWord.length()==12);
                     }
-                    else
+                    else if( sWord.length() >0 )
                     {
                         sWildcard += sWCspace + sWord + "%";
                         sWCspace = " ";
@@ -257,9 +259,11 @@ public class CandidateActivity extends AppCompatActivity {
                 if (sWildcard.length() > 1)
                     sWhere += " AND S.NAME LIKE " + cDatabase.QS(sWildcard);
 
-                if ( sSearchLoc.length() > 0 && ! bIsID )
+                sSearch = sSearchLoc;
+                sSearch = sSearch.replaceAll("[\\W]|_", "");
+                if ( sSearch.length() > 0 && ! bIsID )
                 {
-                    sWildcard =cDatabase.QS( sSearchLoc + "%");
+                    sWildcard =cDatabase.QS( sSearch + "%");
                     sWhere += " AND ( "+
                             "F.NAME LIKE " + sWildcard+
                             "OR F.GNM1 LIKE " + sWildcard+

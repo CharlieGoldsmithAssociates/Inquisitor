@@ -59,13 +59,26 @@ public class loadingActivity extends AppCompatActivity {
 
         @Override
         protected Boolean doInBackground(Void... params) {
-            Log.v("HRISLOG", "doInBackground-load");
             boolean bAllOk = true;
-            if (!getStaffList(false) )
-                bAllOk = false;
+            int iAdmin =  Integer.parseInt(cGlobal.getPref("ADMINLOGIN","0"));
+            Log.v("HRISLOG", "doInBackground-load");
 
-            statusReport("Welcome " + cGlobal.curAdjudicatorName() + " :");
-            cQuestionnaire.getAllQuestionnaires(cGlobal.curUID(), uiProgress);
+            cQuestionnaire.publishAllQuestionnaires(cGlobal.curUID(), uiProgress);
+
+
+
+            if (bAllOk) {
+                if (!getStaffList(false)){
+                        bAllOk = false;
+                }
+            }
+
+
+
+            if ( bAllOk ) {
+                statusReport("Welcome " + cGlobal.curAdjudicatorName() + " : loading");
+                cQuestionnaire.getAllQuestionnaires(cGlobal.curUID(), uiProgress);
+            }
 
             return bAllOk;
         }
@@ -95,7 +108,7 @@ public class loadingActivity extends AppCompatActivity {
 
             long lLast = cGlobal.getPref("LASTSTAFFCHK", 0);
             long lNow = System.currentTimeMillis()/1000;
-            if ( (lNow-lLast) > 3600 )
+            if ( (lNow-lLast) > (60*60*1) )
                 bForce=true;
 
             statusReport("Welcome " + cGlobal.curAdjudicatorName());
@@ -131,6 +144,7 @@ public class loadingActivity extends AppCompatActivity {
                 BufferedReader reader = new BufferedReader(sSR);
                 try
                 {
+                    cGlobal.cdb.startTransaction();
                     String sWelcome = "Welcome " + cGlobal.curAdjudicatorName() +"\n";
                     String sLine;
                     String sVerb = "";
@@ -165,6 +179,7 @@ public class loadingActivity extends AppCompatActivity {
                             Log.v("HRISLOG","Unhandled line in reply "+ sLine );
 
                     }
+                    cGlobal.cdb.endTransaction();
                     Log.v("HRISLOG", "getStaffList: parse reply: done " + iCount);
                     statusReport("Welcome " + cGlobal.curAdjudicatorName() + "\nStaff Data: complete");
                     // store time of update
@@ -172,6 +187,7 @@ public class loadingActivity extends AppCompatActivity {
                 }
                 catch ( Exception e )
                 {
+                    cGlobal.cdb.abandonTransaction();
                     Log.e("HRISLOG","Error reading list-staff reply from host "+ e.getMessage());
                     statusReport("Requesting User Data: Error");
 
@@ -179,6 +195,7 @@ public class loadingActivity extends AppCompatActivity {
                 }
                 finally
                 {
+                    cGlobal.cdb.endTransaction();
                     try {
                         reader.close();
                         sSR.close();

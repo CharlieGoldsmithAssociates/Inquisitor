@@ -43,6 +43,7 @@ import java.io.StringReader;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.jar.Manifest;
 
 import static android.Manifest.permission.INTERNET;
@@ -476,6 +477,15 @@ public class LoginActivity extends AppCompatActivity  {
                         String sUserRec = cUtils.getAPIResulttext(sReply);
                         cGlobal.doAdjudicatorLogin(sUserRec, mLogin);
 
+                        // HT Oct 17 allow certain users to upload ALL
+                        cGlobal.setPref("ADMINLOGIN","0");
+                        if (mLogin.equals( "ADMINID")||
+                                mLogin.equals( "GemmaMOE")||
+                                mLogin.equals( "HowardT"))
+                        {
+                            cGlobal.setPref("FORCEUPLOADALL","TRUE");
+                            cGlobal.setPref("ADMINLOGIN","1");
+                        }
                         // and store/cache the password for offline login later
                         cGlobal.setPref("pwd"+ mLogin, cUtils.HashString(mPassword) );
                         statusReport(  "Welcome "+mLogin);

@@ -6,6 +6,7 @@ import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.os.Message;
 import android.os.Handler;
+import android.os.Environment;
 
 import android.util.Log;
 
@@ -74,6 +75,13 @@ public class cUtils {
         return getAPIResult(sAPIInstruction, "");
     }
 
+    static public boolean isExternalStorageWritable() {
+        String state = Environment.getExternalStorageState();
+        if (Environment.MEDIA_MOUNTED.equals(state)) {
+            return true;
+        }
+        return false;
+    }
     static public String getAPIResult ( String sAPIInstruction, String sArgs )
     {
         Random r = new Random();
@@ -115,7 +123,7 @@ public class cUtils {
     {
         //Log.d("HRISLOG", "getURL begining");
         // todo remove log that exposes pwds
-        Log.d("HRISLOG", "getURL url:" + sURL);
+        //Log.d("HRISLOG", "getURL url:" + sURL);
 
         StringBuilder sOut= new StringBuilder();
         if( isNetworkAvailable()) {

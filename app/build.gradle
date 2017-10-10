@@ -1,26 +1,37 @@
 apply plugin: 'com.android.application'
 
 android {
+    signingConfigs {
+        ReleaseKey {
+            keyAlias 'Tytherleigh Ltd Key'
+            keyPassword 'a_GlenysGE143n'
+            storeFile file('T:/work/Android/howardTy.jks')
+            storePassword 'a_GlenysGE143n'
+        }
+    }
     compileSdkVersion 23
-    buildToolsVersion "23.0.2"
-
+    buildToolsVersion '25.0.0'
     defaultConfig {
         applicationId "uk.co.cga.hristest"
         minSdkVersion 14
         targetSdkVersion 23
-        versionCode 13
-        versionName "1.13 Apr 16"
+        versionCode 16
+        versionName "1.16 October 17"
     }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.ReleaseKey
+        }
+        debug {
+            signingConfig signingConfigs.ReleaseKey
         }
     }
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: ['*.jar'])
+    compile fileTree(include: ['*.jar'], dir: 'libs')
     testCompile 'junit:junit:4.12'
     compile 'com.android.support:appcompat-v7:23.1.1'
     compile 'com.android.support:design:23.1.1'

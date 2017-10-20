@@ -28,19 +28,19 @@
     <string name="candNotFound">No matching staff found</string>
     <string name="candFound">%d Staff match</string>
     <string name="candHint">Name or HRIS ID</string>
-    <string name="title_activity_questionnaire">Inquisitor</string>
+    <string name="title_activity_questionnaire">AELMA</string>
     <string name="action_settings">Settings</string>
     <string name="section_format">Hello World from section: %1$d</string>
     <!-- questionnaire section -->
     <string name="qNavDesc">Back to start page</string>
     <string name="dl_title">Downloading</string>
     <string name="dl_subtitle">Getting the questions and images for the test now.</string>
-    <string name="title_activity_main">Inquisitor: Start</string>
+    <string name="title_activity_main">AELMA: Start</string>
 
     <!-- main activity options -->
-    <string name="main_title">Inquisitor</string>
+    <string name="main_title">AELMA</string>
     <string name="main_subtitle">Choose a questionnaire to start</string>
-    <string name="title_activity_question">Inquisitor:</string>
+    <string name="title_activity_question">AELMA:</string>
     <string name="choosestaff">Select Test Candidate</string>
     <string name="chooseNow">Click to choose now\nor you can set it later.</string>
     <string name="qStart">Click to start questionnaire</string>

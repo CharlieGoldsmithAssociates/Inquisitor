@@ -14,6 +14,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 
+import android.provider.Settings;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
@@ -808,12 +809,17 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
             protected Boolean doInBackground(Void... params) {
                 Log.v("HRISLOG", "doInBackground-upload ");
                 ArrayList<String> toSend;
+                StringBuilder sReport= new StringBuilder();
+                sReport.append("Upload report: start:\n");
+
                 // how many to send
                 if (msQRef == null || msQRef.length() == 0) {
                     // all!
                     Log.v("HRISLOG", "doInBackground-upload ALL ");
                     onProgressUpdate("Checking for completed questionnaires");
                     toSend = cQuestionnaire.listSavedQuestionnaires( mFeedbackHandler );
+                    sReport.append("Load saved questionnaires \n");
+
                 } else {
                     toSend = new ArrayList<String>(1);
                     toSend.add(0, msQRef);
@@ -823,50 +829,72 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
 
                 int iP = 0;
                 int iMax = toSend.size();
+                sReport.append(String.format("Sending %d questionnaires \n",iMax) );
                 for (String sQRef : toSend) {
-                    String sStaffChk = "";
-                    // read as hashmap
-                    HashMap<String, String> hm = cQuestionnaire.loadSavedQuestionnaire(sQRef);
-                    // update status after read
-                    onProgressUpdate((int) ((iP * 100) / iMax));
+                    try {
+                        String sStaffChk = "";
+                        // read as hashmap
+                        HashMap<String, String> hm = cQuestionnaire.loadSavedQuestionnaire(sQRef);
+                        // update status after read
+                        onProgressUpdate((int) ((iP * 100) / iMax));
 
-                    if (hm.containsKey(cQuestionnaire.STAFFID))
-                        sStaffChk = hm.get(cQuestionnaire.STAFFID);
+                        if (hm.containsKey(cQuestionnaire.STAFFID))
+                            sStaffChk = hm.get(cQuestionnaire.STAFFID);
 
-                    // HT Oct 17 - add force mode to send all questionnairs , with or without staff
-                    String sTmp = cGlobal.getPref("FORCEUPLOADALL","");
+                        // HT Oct 17 - add force mode to send all questionnairs , with or without staff
+                        String sTmp = cGlobal.getPref("FORCEUPLOADALL", "");
 
-                    if (sStaffChk.length() > 0 || sTmp.length()>0 ) {
-                        // set uploaded in memory ready for upload..
-                        hm.put(cQuestionnaire.UPLOADED, cUtils.getTimestamp());
-                        hm.put("S", cGlobal.sessKey());
-                        // do the work..
-                        onProgressUpdate("Sending " + sQRef);
-                        String sOut = cUtils.postAPIForm("SUBMITQ", mFeedbackHandler, hm);
-                        // update the status
-                        if (!cUtils.isAPIResultOK(sOut)) {
-                            // failed don't save uploaded status change
-                            onProgressUpdate("Error uploading " + sQRef);
+                        if (sStaffChk.length() > 0 || sTmp.length() > 0) {
+                            sReport.append(String.format("Upload %s: staff '%s', override:%s \n", sQRef, sStaffChk, sTmp));
+
+                            // set uploaded in memory ready for upload..
+                            hm.put(cQuestionnaire.UPLOADED, cUtils.getTimestamp());
+                            hm.put("S", cGlobal.sessKey());
+                            // do the work..
+                            onProgressUpdate("Sending " + sQRef);
+                            String sOut = cUtils.postAPIForm("SUBMITQ", mFeedbackHandler, hm);
+                            sReport.append(String.format("Upload %s Reply:\n", sQRef, sOut));
+                            // update the status
+                            if (!cUtils.isAPIResultOK(sOut)) {
+                                // failed don't save uploaded status change
+                                onProgressUpdate("Error uploading " + sQRef);
+                            } else {
+                                // save uploaded state
+                                onProgressUpdate("Uploaded " + sQRef + "ok.. saving");
+                                cQuestionnaire.updateSavedQuestionnaire(sQRef, hm);
+                                onProgressUpdate("Uploaded " + sQRef + " done");
+                                sReport.append(String.format("Saved %s with uploaded status:\n", sQRef));
+                            }
                         } else {
-                            // save uploaded state
-                            onProgressUpdate("Uploaded " + sQRef + "ok.. saving");
-                            cQuestionnaire.updateSavedQuestionnaire(sQRef, hm);
-                            onProgressUpdate("Uploaded " + sQRef + " done");
-
+                            onProgressUpdate("No staff set for " + sQRef);
+                            sReport.append(String.format("Ignored %s staff '%s', override:%s \n", sQRef, sStaffChk, sTmp));
                         }
-                    } else {
-                        onProgressUpdate("No staff set for " + sQRef);
-                    }
 
-                    // update status after done..
+
+
+                        hm.clear();
+                    } catch (Exception e )
+                    {
+                        onProgressUpdate("Error uploading " + sQRef);
+                        sReport.append(String.format("Error uploading %s :%s \n", sQRef, e.getMessage()));
+                    }
                     iP++;
-                    hm.clear();
                 }
                 toSend.clear();
                 if (iP == 0) {
                     onProgressUpdate( "No questionnaires to upload");
                 }
                 Log.v("HRISLOG", "doInBackground-upload:done " + iP);
+
+                // log attempt to server
+                String android_id = Settings.Secure.getString(cGlobal.main_Context.getContentResolver(),
+                        Settings.Secure.ANDROID_ID);
+                HashMap<String, String> hm = new HashMap<String, String>();
+                hm.put("REPORT", sReport.toString());
+                hm.put("MID", android_id);
+
+                cUtils.postAPIForm("SAVEREP", null, hm);
+
                 return true;
             }
 

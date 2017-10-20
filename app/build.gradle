@@ -15,8 +15,8 @@ android {
         applicationId "uk.co.cga.hristest"
         minSdkVersion 14
         targetSdkVersion 23
-        versionCode 16
-        versionName "1.16 October 17"
+        versionCode 18
+        versionName "1.18 October 17"
     }
     buildTypes {
         release {

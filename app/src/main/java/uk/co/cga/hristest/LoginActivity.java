@@ -479,16 +479,18 @@ public class LoginActivity extends AppCompatActivity  {
 
                         // HT Oct 17 allow certain users to upload ALL
                         cGlobal.setPref("ADMINLOGIN","0");
+                        String sAdmin = "";
                         if (mLogin.equals( "ADMINID")||
                                 mLogin.equals( "GemmaMOE")||
                                 mLogin.equals( "HowardT"))
                         {
                             cGlobal.setPref("FORCEUPLOADALL","TRUE");
                             cGlobal.setPref("ADMINLOGIN","1");
+                            sAdmin = " (Admin) ";
                         }
                         // and store/cache the password for offline login later
                         cGlobal.setPref("pwd"+ mLogin, cUtils.HashString(mPassword) );
-                        statusReport(  "Welcome "+mLogin);
+                        statusReport(  "Welcome "+ cGlobal.curAdjudicatorName() + sAdmin);
                         // and return true = ok
                         bReply = true;
                         Log.v("HRISLOG","Do login check: good reply exit true ");
@@ -497,20 +499,32 @@ public class LoginActivity extends AppCompatActivity  {
 
                     Log.d("HRISLOG", "Reply is error " + sReply.substring(0, Math.min(sReply.length(), 50)));
 
-                    statusReport("Invalid password");
+                    statusReport("Login failed..");
 
                     mLastErr = cUtils.getAPIResulttext(sReply);
                     if ( mLastErr.length()==0 )
                         mLastErr= getString(R.string.errLogin3);
-                    return false;
+
+                    // change was reply false, now drop through and try local login..
                 }
                 else
                 {
                     mLastErr= getString(R.string.errLogin1);
+                    statusReport("checking: network not available");
                 }
-                Log.d("HRISLOG", "Not online : check cache ");
-                statusReport("checking: network not available");
 
+            }
+            catch (Exception e) {
+                Log.e("HRISLOG", "Exception checking password:"+ e.getMessage());
+                mLastErr= getString(R.string.errLogin2) +"\n"+ e.getMessage();
+                statusReport("Exception checking online login ");
+                bReply= false;
+            }
+
+
+            try {
+
+                Log.d("HRISLOG", "Check local login cache ");
                 // if it gets here we're not online so use cache
                 // is the user name in local cache - stored after first succesful login
                 String sTestPwd = cGlobal.getPref("pwd"+ mLogin);
@@ -524,8 +538,18 @@ public class LoginActivity extends AppCompatActivity  {
                         String sUserRec = cGlobal.getPref("usr"+ mLogin);
                         // and set them as current
                         cGlobal.doAdjudicatorLogin(sUserRec, mLogin);
-
-                        statusReport("Welcome " + cGlobal.curAdjudicatorName() + "\nUsing stored login details");
+                        // HT Oct 17 allow certain users to upload ALL
+                        cGlobal.setPref("ADMINLOGIN","0");
+                        String sAdmin = "";
+                        if (mLogin.equals( "ADMINID")||
+                                mLogin.equals( "GemmaMOE")||
+                                mLogin.equals( "HowardT"))
+                        {
+                            cGlobal.setPref("FORCEUPLOADALL","TRUE");
+                            cGlobal.setPref("ADMINLOGIN","1");
+                            sAdmin = " (Admin) ";
+                        }
+                        statusReport("Welcome " + cGlobal.curAdjudicatorName() + sAdmin + "\nUsing stored login details");
                         Log.v("HRISLOG","Do login check: good reply exit true ");
                         bReply = true;// hit finally and get staff list
                         return bReply;
@@ -536,21 +560,30 @@ public class LoginActivity extends AppCompatActivity  {
                         Log.v("HRISLOG", "Cache hit: password missmatch ");
 
                         statusReport("Invalid password, using stored login details");
+                        mLastErr="Invalid password, using stored login details" ;
                         bReply = false;
 
                     }
                 }
-                Log.v("HRISLOG", "Cache miss ");
+                else
+                {
+                    statusReport("Sorry no stored login details for "+ mLogin);
+                    mLastErr="Sorry no stored login details for "+ mLogin ;
 
-                // not found in cache
-                statusReport( "Cannot check password: please connect to internet");
+                }
+                Log.v("HRISLOG", "Cache miss ");
+                Thread.sleep(1000);
+
             }
             catch (Exception e) {
-                Log.e("HRISLOG", "Exception checking password:"+ e.getMessage());
+                Log.e("HRISLOG", "Exception checking password2:"+ e.getMessage());
                 mLastErr= getString(R.string.errLogin2) +"\n"+ e.getMessage();
+                statusReport("Exception checking login ");
                 bReply= false;
             }
 
+            // not found in cache
+            // sleep for a mo to show the error, and slow down login attempts
             return bReply;
         }
 

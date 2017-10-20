@@ -510,7 +510,7 @@ public class cQuestionnaire {
                                 } else
                                     bAdd = false;// err
                             }
-                            if (bAdd && iCount < 25)
+                            if (bAdd && iCount < 100)
                                 aReply.add(sSavedQRef);
                         } catch ( Exception e) {
                             Log.v("HRISLOG", "Error loading questionnaire : " + sFile );
@@ -1004,6 +1004,7 @@ public class cQuestionnaire {
                         Secure.ANDROID_ID);
                 HashMap<String, String> hm = new HashMap<String, String>();
                 hm.put("REPORT", sReport);
+                hm.put("MID", android_id);
                 hm.put("UID", sUID);
                 sReport += cUtils.postAPIForm("SAVEREP", null, hm);
             }

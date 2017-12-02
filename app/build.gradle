@@ -10,13 +10,13 @@ android {
         }
     }
     compileSdkVersion 23
-    buildToolsVersion '25.0.0'
+    buildToolsVersion '26.0.2'
     defaultConfig {
         applicationId "uk.co.cga.hristest"
         minSdkVersion 14
         targetSdkVersion 23
-        versionCode 18
-        versionName "1.18 October 17"
+        versionCode 19
+        versionName "1.19 October 17"
     }
     buildTypes {
         release {

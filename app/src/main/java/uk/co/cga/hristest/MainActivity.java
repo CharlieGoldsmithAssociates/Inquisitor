@@ -46,7 +46,12 @@ public class MainActivity extends AppCompatActivity {
         lvQuestionnaires.setAdapter(ad);
         lvQuestionnaires.setOnItemClickListener(lvClickListener);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        toolbar.setTitle(R.string.main_title);
+
+        // HT Oct 17 - add force mode to send all questionnairs , with or without staff
+        String sTmp = cGlobal.getPref("ADMINLOGIN", "");
+        String sAdmin = "";
+        if ( sTmp.length()>0 ) sAdmin = "(Admin Mode)";
+        toolbar.setTitle(R.string.main_title+sAdmin);
         toolbar.setLogo(R.drawable.hrtest_icon);
         toolbar.setLogoDescription(R.string.app_desc);
 

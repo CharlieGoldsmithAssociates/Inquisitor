@@ -842,10 +842,11 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
                             sStaffChk = hm.get(cQuestionnaire.STAFFID);
 
                         // HT Oct 17 - add force mode to send all questionnairs , with or without staff
-                        String sTmp = cGlobal.getPref("FORCEUPLOADALL", "");
+                        String sTmp = cGlobal.getPref("FORCEUPLOADALL", "") +
+                                cGlobal.getPref("ADMINLOGIN", "");
 
                         if (sStaffChk.length() > 0 || sTmp.length() > 0) {
-                            sReport.append(String.format("Upload %s: staff '%s', override:%s \n", sQRef, sStaffChk, sTmp));
+                            sReport.append(String.format("Upload %s: staff '%s', override:'%s' \n", sQRef, sStaffChk, sTmp));
 
                             // set uploaded in memory ready for upload..
                             hm.put(cQuestionnaire.UPLOADED, cUtils.getTimestamp());
@@ -867,7 +868,7 @@ public class uploadActivity extends AppCompatActivity implements TaskCallbacks {
                             }
                         } else {
                             onProgressUpdate("No staff set for " + sQRef);
-                            sReport.append(String.format("Ignored %s staff '%s', override:%s \n", sQRef, sStaffChk, sTmp));
+                            sReport.append(String.format("Ignored %s staff '%s', override:'%s' \n", sQRef, sStaffChk, sTmp));
                         }
 
 
